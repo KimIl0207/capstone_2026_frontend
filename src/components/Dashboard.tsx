@@ -1,7 +1,9 @@
 import { useContainerWidth, Responsive } from "react-grid-layout";
 import type { DashboardItem } from "../types/dashboard";
 import { WidgetRenderer } from "./WidgetRenderer";
+
 import { useDashboardState } from "../hooks/useDashboardState";
+import { useEquipmentWebSocket } from "../hooks/useEquipmentWebSocket";
 
 import { MOCK_DATA, ALERTS_DATA, TEMP_DATA } from "./mocks/dashboardMockData";
 import { initialLayouts } from "./utils/initialLayouts";
@@ -17,6 +19,7 @@ export default function Dashboard() {
     alerts,
     time,
     equipment,
+    setEquipment,
     layouts,
     isModalOpen,
     isEqModalOpen,
@@ -48,6 +51,8 @@ export default function Dashboard() {
     initialLayouts,
     alertsData: ALERTS_DATA,
   });
+
+  useEquipmentWebSocket(setEquipment);
 
   return (
     <div className="min-h-screen bg-[#0B0F1A] text-slate-200 font-sans selection:bg-indigo-500/30">

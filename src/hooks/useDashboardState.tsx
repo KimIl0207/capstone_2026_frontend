@@ -56,26 +56,26 @@ export function useDashboardState({
   const [tempSelection, setTempSelection] = useState({ eqId: "", sensorId: "" });
   const [searchTerm, setSearchTerm] = useState("");
 
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setTime(new Date());
-      setEquipment((prev) => ({
-        ...prev,
-        metrics: {
-          ...prev.metrics,
-          oee: Number((prev.metrics.oee + (Math.random() * 0.2 - 0.1)).toFixed(1)),
-        },
-        sensors: prev.sensors.map((s) => ({
-          ...s,
-          value: Number(
-            (s.value + (Math.random() * 2 - 1)).toFixed(s.label === "Pressure" ? 2 : 0)
-          ),
-        })),
-      }));
-    }, 2000);
+  // useEffect(() => {
+  //   const timer = setInterval(() => {
+  //     setTime(new Date());
+  //     setEquipment((prev) => ({
+  //       ...prev,
+  //       metrics: {
+  //         ...prev.metrics,
+  //         oee: Number((prev.metrics.oee + (Math.random() * 0.2 - 0.1)).toFixed(1)),
+  //       },
+  //       sensors: prev.sensors.map((s) => ({
+  //         ...s,
+  //         value: Number(
+  //           (s.value + (Math.random() * 2 - 1)).toFixed(s.label === "Pressure" ? 2 : 0)
+  //         ),
+  //       })),
+  //     }));
+  //   }, 2000);
 
-    return () => clearInterval(timer);
-  }, []);
+  //   return () => clearInterval(timer);
+  // }, []);
 
   useEffect(() => {
     const savedLayout = localStorage.getItem("myFoundryDashboard");
@@ -241,6 +241,7 @@ export function useDashboardState({
     alerts,
     time,
     equipment,
+    setEquipment,
     layouts,
     isModalOpen,
     isEqModalOpen,

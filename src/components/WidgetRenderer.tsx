@@ -1,12 +1,12 @@
 import { OEEContent } from "./OEEContent";
 import { SensorGridContent } from "./SensorGridContent";
-import { TrendChartContent } from "./charts/TrendChartContent";
-import { AlertsContent } from "./charts/AlertsContent";
-import { GaugeChartWidget } from "./charts/GaugeChartWidget";
-import { DonutChartWidget } from "./charts/DonutChartWidget";
-import { StatusWidget } from "./charts/StatusWidget";
-import { LogContent } from "./charts/LogContent";
-import { BarChartWidget } from "./charts/BarChartWidget";
+import { TrendChartContent } from "./widgets/TrendChartContent";
+import { AlertsContent } from "./widgets/AlertsContent";
+import { GaugeChartWidget } from "./widgets/GaugeChartWidget";
+import { DonutChartWidget } from "./widgets/DonutChartWidget";
+import { StatusWidget } from "./widgets/StatusWidget";
+import { LogContent } from "./widgets/LogContent";
+import { BarChartWidget } from "./widgets/BarChartWidget";
 
 import type { UniversalEquipment } from "../types/equipment";
 import type { DashboardItem } from "../types/dashboard";

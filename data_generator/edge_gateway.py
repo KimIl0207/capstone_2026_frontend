@@ -2,7 +2,7 @@ import asyncio
 import json
 import websockets
 from datetime import datetime, timezone
-from pymodbus.client import AsyncModbusTcpClient
+from pymodbus.client.sync import ModbusTcpClient
 
 # 글로벌 버퍼 (0.1초마다 들어오는 데이터를 잠시 담아둠)
 buffer = {"temp": [], "power": []}
@@ -11,15 +11,15 @@ current_cycle = 0
 async def poll_modbus_data():
     """1. 장비에서 0.1초마다 데이터를 긁어오는(Polling) 수집기"""
     global current_cycle
-    client = AsyncModbusTcpClient('127.0.0.1', port=5020)
-    await client.connect()
+    client = ModbusTcpClient('127.0.0.1', port=5020)
+    client.connect()
     
     print("📡 [게이트웨이] 구형 장비와 Modbus 연결 성공. 수집 시작...")
     
     while True:
         try:
             # 장비의 0번 방부터 3개의 데이터를 읽어옴
-            result = await client.read_holding_registers(address=0, count=3, slave=0)
+            result = client.read_holding_registers(address=0, count=3, slave=0)
             if not result.isError():
                 raw_temp, raw_power, raw_cycle = result.registers
                 

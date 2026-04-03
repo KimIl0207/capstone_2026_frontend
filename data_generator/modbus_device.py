@@ -1,6 +1,6 @@
 import asyncio
 import random
-from pymodbus.server import StartAsyncTcpServer
+from pymodbus.server.sync import StartTcpServer
 from pymodbus.datastore import ModbusSequentialDataBlock, ModbusSlaveContext, ModbusServerContext
 
 # 0.1초마다 쌩(Raw) 데이터를 생성하여 Modbus 메모리에 덮어쓰는 엔진
@@ -34,7 +34,7 @@ async def run_modbus_server():
     
     # 서버 실행과 데이터 발생 루프를 동시에 돌림
     asyncio.create_task(generate_raw_data(context))
-    await StartAsyncTcpServer(context=context, address=("127.0.0.1", 5020))
+    await StartTcpServer(context=context, address=("127.0.0.1", 5020))
 
 if __name__ == "__main__":
     asyncio.run(run_modbus_server())
