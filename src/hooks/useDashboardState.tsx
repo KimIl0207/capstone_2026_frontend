@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import type { UniversalEquipment } from "../types/equipment";
 import type {
   DashboardItem,
@@ -8,18 +8,22 @@ import type {
 } from "../types/dashboard";
 import type { Layout } from "react-grid-layout";
 
+
+// 대시보드 상태 관리를 위한 커스텀 훅
 type WidgetConfig = {
   type: DashboardWidgetType;
   dataKey: string;
   title: string;
 };
 
+// useDashboardState 훅의 파라미터 타입 정의
 type UseDashboardStateParams = {
   mockData: UniversalEquipment;
   initialLayouts: Record<string, DashboardItem[]>;
   alertsData: any[];
 };
 
+// useDashboardState 훅 정의
 export function useDashboardState({
   mockData,
   initialLayouts,
@@ -56,27 +60,10 @@ export function useDashboardState({
   const [tempSelection, setTempSelection] = useState({ eqId: "", sensorId: "" });
   const [searchTerm, setSearchTerm] = useState("");
 
-  // useEffect(() => {
-  //   const timer = setInterval(() => {
-  //     setTime(new Date());
-  //     setEquipment((prev) => ({
-  //       ...prev,
-  //       metrics: {
-  //         ...prev.metrics,
-  //         oee: Number((prev.metrics.oee + (Math.random() * 0.2 - 0.1)).toFixed(1)),
-  //       },
-  //       sensors: prev.sensors.map((s) => ({
-  //         ...s,
-  //         value: Number(
-  //           (s.value + (Math.random() * 2 - 1)).toFixed(s.label === "Pressure" ? 2 : 0)
-  //         ),
-  //       })),
-  //     }));
-  //   }, 2000);
+  const [autoArrange, setAutoArrange] = useState(true);
+  const skipNextLayoutChange = useRef(false);
 
-  //   return () => clearInterval(timer);
-  // }, []);
-
+  // 대시보드 레이아웃을 로컬 스토리지에서 불러오고, 변경될 때마다 저장하는 효과
   useEffect(() => {
     const savedLayout = localStorage.getItem("myFoundryDashboard");
     if (!savedLayout) return;
@@ -91,28 +78,96 @@ export function useDashboardState({
     }
   }, []);
 
+  // 레이아웃이 변경될 때마다 로컬 스토리지에 저장
   useEffect(() => {
     if (layouts.length > 0) {
       localStorage.setItem("myFoundryDashboard", JSON.stringify(layouts));
     }
   }, [layouts]);
 
-  const handleLayoutChange = (currentLayout: Layout, _allLayouts?: Partial<Record<string, Layout>>) => {
-    const updated = layouts.map((widget) => {
-      const found = currentLayout.find((l) => l.i === widget.i);
+  const compactWidgets = (items: DashboardItem[], cols = 12) => {
+    const pinned = items.filter(item => item.pinned);
+    const movable = items.filter(item => !item.pinned);
 
-      return found
-        ? { ...widget, x: found.x, y: found.y, w: found.w, h: found.h }
-        : widget;
+    const occupied = new Set<string>();
+
+    const markOccupied = (x: number, y: number, w: number, h: number) => {
+      for (let dy = 0; dy < h; dy++) {
+        for (let dx = 0; dx < w; dx++) {
+          occupied.add(`${x + dx},${y + dy}`);
+        }
+      }
+    };
+
+    const canPlace = (x: number, y: number, w: number, h: number) => {
+      if (x + w > cols) return false;
+
+      for (let dy = 0; dy < h; dy++) {
+        for (let dx = 0; dx < w; dx++) {
+          if (occupied.has(`${x + dx},${y + dy}`)) return false;
+        }
+      }
+      return true;
+    };
+
+    // pinned 자리 먼저 점유
+    pinned.forEach(item => {
+      markOccupied(item.x, item.y, item.w, item.h);
     });
 
-    setLayouts(updated);
+    // movable만 재배치
+    const reorderedMovable = [...movable]
+      .sort((a, b) => (a.y - b.y) || (a.x - b.x))
+      .map(item => {
+        for (let y = 0; y < 1000; y++) {
+          for (let x = 0; x < cols; x++) {
+            if (canPlace(x, y, item.w, item.h)) {
+              const placed = { ...item, x, y };
+              markOccupied(x, y, item.w, item.h);
+              return placed;
+            }
+          }
+        }
+        return item;
+      });
+
+    return [...pinned, ...reorderedMovable];
   };
 
   const removeWidget = (widgetId: string) => {
-    setLayouts((prev) => prev.filter((l) => l.i !== widgetId));
+    setLayouts((prev) => {
+      const next = prev.filter((l) => l.i !== widgetId);
+      return autoArrange ? compactWidgets(next) : next;
+    });
+  };
+  
+  const applyLayout = (currentLayout: Layout, shouldCompact = false) => {
+    setLayouts(prev => {
+      const updated = prev.map(widget => {
+        if (widget.pinned) return widget;
+
+        const found = currentLayout.find(l => l.i === widget.i);
+
+        return found
+          ? { ...widget, x: found.x, y: found.y, w: found.w, h: found.h }
+          : widget;
+      });
+
+      return shouldCompact ? compactWidgets(updated) : updated;
+    });
   };
 
+  // 대시보드 레이아웃 변경 핸들러
+  const handleLayoutChange = (currentLayout: Layout) => {
+    if (skipNextLayoutChange.current) {
+      skipNextLayoutChange.current = false;
+      return;
+    }
+
+    applyLayout(currentLayout, false);
+  };
+
+  // 위젯 빌더 초기화 함수
   const resetWidgetBuilder = () => {
     setIsModalOpen(false);
     setBuilderStep(1);
@@ -121,6 +176,7 @@ export function useDashboardState({
     setSearchTerm("");
   };
 
+  // 선택된 센서를 장바구니에 추가하는 함수
   const addSelectedSensorToCart = () => {
     if (!tempSelection.eqId || !tempSelection.sensorId) {
       alert("장비와 센서를 모두 선택해주세요!");
@@ -236,12 +292,28 @@ export function useDashboardState({
     alert("선택된 모든 자산과 태그가 성공적으로 동기화되었습니다.");
   };
 
+  // 위젯 고정/고정 해제 함수
+  const togglePinWidget = (widgetId: string) => {
+    skipNextLayoutChange.current = true; // 다음 레이아웃 변경 이벤트를 무시하도록 설정
+
+    setLayouts((prev) =>
+      prev.map((widget) =>
+        widget.i === widgetId
+          ? {
+            ...widget,
+            pinned: !widget.pinned,
+            static: !widget.pinned,
+          } : widget
+      )
+    );
+  };
+
   return {
     allEquipments,
     alerts,
+    autoArrange,
     time,
     equipment,
-    setEquipment,
     layouts,
     isModalOpen,
     isEqModalOpen,
@@ -251,12 +323,15 @@ export function useDashboardState({
     tempSelection,
     searchTerm,
 
+    setEquipment,
+    setAutoArrange,
     setIsModalOpen,
     setIsEqModalOpen,
     setNewWidgetConfig,
     setBuilderStep,
     setTempSelection,
     setSearchTerm,
+    setLayouts,
 
     handleLayoutChange,
     removeWidget,
@@ -268,5 +343,8 @@ export function useDashboardState({
     startNetworkScan,
     closeEquipmentModal,
     applyEquipmentRegistration,
+    togglePinWidget,
+    compactWidgets,
+    applyLayout,
   };
 }

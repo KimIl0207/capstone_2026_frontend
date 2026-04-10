@@ -17,6 +17,7 @@ export default function Dashboard() {
   const {
     allEquipments,
     alerts,
+    autoArrange,
     time,
     equipment,
     setEquipment,
@@ -28,6 +29,7 @@ export default function Dashboard() {
     selectedDataCart,
     tempSelection,
     searchTerm,
+    togglePinWidget,
 
     setIsModalOpen,
     setIsEqModalOpen,
@@ -35,6 +37,8 @@ export default function Dashboard() {
     setBuilderStep,
     setTempSelection,
     setSearchTerm,
+    setAutoArrange,
+    // setLayouts,
 
     handleLayoutChange,
     removeWidget,
@@ -46,6 +50,7 @@ export default function Dashboard() {
     startNetworkScan,
     closeEquipmentModal,
     applyEquipmentRegistration,
+    applyLayout,
   } = useDashboardState({
     mockData: MOCK_DATA,
     initialLayouts,
@@ -112,6 +117,15 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+        <button
+          onClick={() => setAutoArrange(!autoArrange)}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${autoArrange
+              ? "bg-blue-600 text-white"
+              : "bg-slate-800 text-slate-400"
+            }`}
+        >
+          Auto Arrange: {autoArrange ? "ON" : "OFF"}
+        </button>
       </header>
 
       <main className="p-4 max-w-[1800px] mx-auto">
@@ -124,6 +138,14 @@ export default function Dashboard() {
             rowHeight={140}
             width={width || 1200}
             margin={[20, 20]}
+            onDragStop={() => {
+              if (!autoArrange) return;
+              applyLayout(layouts, false);
+            }}
+            onResizeStop={() => {
+              if (!autoArrange) return;
+              applyLayout(layouts, true);
+            }}
             onLayoutChange={handleLayoutChange}
           >
             {layouts.map((widget: DashboardItem) => (
@@ -157,6 +179,14 @@ export default function Dashboard() {
                       <line x1="18" y1="6" x2="6" y2="18" />
                       <line x1="6" y1="6" x2="18" y2="18" />
                     </svg>
+                  </button>
+                  <button
+                    onClick={() => togglePinWidget(widget.i)}
+                    className={`p-1 text-xs transition-colors ${widget.pinned ? "text-yellow-400" : "text-slate-500 hover:text-white"
+                      }`}
+                    title={widget.pinned ? "핀 해제" : "핀 고정"}
+                  >
+                    📌
                   </button>
                 </div>
 

@@ -1,5 +1,5 @@
-import { OEEContent } from "./OEEContent";
-import { SensorGridContent } from "./SensorGridContent";
+import { OEEContent } from "./widgets/OEEContent";
+import { SensorGridContent } from "./widgets/SensorGridContent";
 import { TrendChartContent } from "./widgets/TrendChartContent";
 import { AlertsContent } from "./widgets/AlertsContent";
 import { GaugeChartWidget } from "./widgets/GaugeChartWidget";

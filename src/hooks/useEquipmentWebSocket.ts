@@ -20,9 +20,16 @@ function getSensorStatus(payloadStatus: "RUN" | "ERROR"): SensorData["status"] {
     return payloadStatus === "ERROR" ? "CRITICAL" : "NORMAL";
 }
 
+function mapSensorIdToLabel(sensorId: string): string {
+    if (sensorId.startsWith("Temp_Sensor_")) return "Temperature";
+    if (sensorId.startsWith("Power_Status_")) return "Power";
+    if (sensorId.startsWith("Cycle_Count_")) return "Cycle Count";
+    return sensorId; // 기본적으로 sensorId를 라벨로 사용
+}
+
 function mapGatewayToDashboard(prev: UniversalEquipment, payload: GatewayPayload): UniversalEquipment {
     const mappedSensors: SensorData[] = payload.sensors.map((sensor) => ({
-        label: sensor.sensorId,
+        label: mapSensorIdToLabel(sensor.sensorId),
         value: sensor.value,
         unit: sensor.unit,
         status: getSensorStatus(payload.status),

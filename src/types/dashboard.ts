@@ -22,6 +22,7 @@ export interface DashboardItem {
   dataKey: string | string[];
   title: string;
   color: string;
+  pinned?: boolean;
 }
 
 export interface SensorMeta {

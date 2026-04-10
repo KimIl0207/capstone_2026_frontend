@@ -60,6 +60,8 @@ async def websocket_handler(websocket):
                 {"sensorId": "Cycle_Count_2", "dataType": "INTEGER", "value": current_cycle, "unit": "cnt"}
             ]
         }
+
+        print(f"📊 [게이트웨이] 1초간 수집된 데이터 10건 -> 평균 온도: {avg_temp}°C, 전원 상태: {'ON' if is_power_on == 1 else 'OFF'}, 사이클: {current_cycle}  ")
         
         # 프론트엔드로 전송
         try:

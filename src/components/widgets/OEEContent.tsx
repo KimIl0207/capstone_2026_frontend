@@ -1,4 +1,4 @@
-import type { UniversalEquipment } from "../types/equipment";
+import type { UniversalEquipment } from "../../types/equipment";
 
 export function OEEContent({ data }: { data: UniversalEquipment }) {
   return (
