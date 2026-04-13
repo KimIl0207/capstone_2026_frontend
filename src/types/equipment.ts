@@ -8,6 +8,7 @@ export type EquipmentStatus = 'RUNNING' | 'IDLE' | 'DOWN' | 'MAINTENANCE';
  * 어떤 장비가 오더라도 label, value, unit 구조로 데이터를 담습니다.
  */
 export interface SensorData {
+  sensorId?: string; // 원시 데이터 식별자 (예: "Temp_Sensor_0"), 필요에 따라 사용
   label: string;  // 예: "Temperature", "Pressure"
   value: number;  // 예: 973, 2.8
   unit: string;   // 예: "°C", "mT"

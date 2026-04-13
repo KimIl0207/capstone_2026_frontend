@@ -1,12 +1,12 @@
 import { useContainerWidth, Responsive } from "react-grid-layout";
 import type { DashboardItem } from "../types/dashboard";
-import { WidgetRenderer } from "./WidgetRenderer";
+import { WidgetRenderer } from "../components/WidgetRenderer";
 
 import { useDashboardState } from "../hooks/useDashboardState";
 import { useEquipmentWebSocket } from "../hooks/useEquipmentWebSocket";
 
-import { MOCK_DATA, ALERTS_DATA, TEMP_DATA } from "./mocks/dashboardMockData";
-import { initialLayouts } from "./utils/initialLayouts";
+import { MOCK_DATA, ALERTS_DATA, TEMP_DATA } from "../components/mocks/dashboardMockData";
+import { initialLayouts } from "../utils/initialLayouts";
 
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
@@ -140,7 +140,7 @@ export default function Dashboard() {
             margin={[20, 20]}
             onDragStop={() => {
               if (!autoArrange) return;
-              applyLayout(layouts, false);
+              applyLayout(layouts, true);
             }}
             onResizeStop={() => {
               if (!autoArrange) return;

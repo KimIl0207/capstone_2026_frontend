@@ -29,6 +29,7 @@ function mapSensorIdToLabel(sensorId: string): string {
 
 function mapGatewayToDashboard(prev: UniversalEquipment, payload: GatewayPayload): UniversalEquipment {
     const mappedSensors: SensorData[] = payload.sensors.map((sensor) => ({
+        sensorId: sensor.sensorId,
         label: mapSensorIdToLabel(sensor.sensorId),
         value: sensor.value,
         unit: sensor.unit,
