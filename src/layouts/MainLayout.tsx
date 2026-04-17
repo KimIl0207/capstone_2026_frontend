@@ -1,62 +1,144 @@
-import { Outlet, NavLink } from "react-router-dom";
-
+import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { useMemo, useState } from "react";
 
 import { useDashboardState } from "../hooks/useDashboardState";
 import { useEquipmentWebSocket } from "../hooks/useEquipmentWebSocket";
+import { isAdmin } from "../utils/Auth";
 
-import { MOCK_DATA, ALERTS_DATA } from "../components/mocks/dashboardMockData";
+import DashboardModals from "../components/dashboard/DashboardModals";
+import { ALERTS_DATA, MOCK_DATA } from "../components/mocks/dashboardMockData";
 import { initialLayouts } from "../utils/initialLayouts";
 
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
-import { useState } from "react";
 
+const navItems = [
+  {
+    to: "/dashboard",
+    label: "Dashboard",
+    description: "실시간 설비 모니터링",
+    icon: "M4 13h6V4H4v9Zm10 7h6V4h-6v16ZM4 20h6v-5H4v5Z",
+  },
+  {
+    to: "/stats",
+    label: "Stats",
+    description: "운영 지표 분석",
+    icon: "M5 19V9h3v10H5Zm6 0V5h3v14h-3Zm6 0v-7h3v7h-3Z",
+  },
+  {
+    to: "/settings",
+    label: "Settings",
+    description: "대시보드 환경 설정",
+    icon: "M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Zm8.4-3.5c0-.4 0-.8-.1-1.2l2-1.5-2-3.5-2.4 1a8.7 8.7 0 0 0-2-1.2L15.5 3h-4l-.4 2.6c-.7.3-1.4.7-2 1.2l-2.4-1-2 3.5 2 1.5a9.5 9.5 0 0 0 0 2.4l-2 1.5 2 3.5 2.4-1c.6.5 1.3.9 2 1.2l.4 2.6h4l.4-2.6c.7-.3 1.4-.7 2-1.2l2.4 1 2-3.5-2-1.5c.1-.4.1-.8.1-1.2Z",
+  },
+];
+
+function SidebarItem({
+  to,
+  label,
+  description,
+  icon,
+  open,
+}: {
+  to: string;
+  label: string;
+  description: string;
+  icon: string;
+  open: boolean;
+}) {
+  return (
+    <NavLink
+      to={to}
+      title={!open ? label : undefined}
+      className={({ isActive }) =>
+        [
+          "group flex items-center gap-3 rounded-lg border px-3 py-3 text-sm font-semibold transition-colors",
+          isActive
+            ? "border-cyan-400/40 bg-cyan-400/10 text-white"
+            : "border-transparent text-slate-400 hover:border-slate-700 hover:bg-slate-800/70 hover:text-slate-100",
+          open ? "justify-start" : "justify-center",
+        ].join(" ")
+      }
+    >
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-900/80 text-cyan-300 ring-1 ring-slate-700/80 group-hover:ring-cyan-400/50">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d={icon} />
+        </svg>
+      </span>
+      {open && (
+        <span className="min-w-0">
+          <span className="block truncate">{label}</span>
+          <span className="mt-0.5 block truncate text-[11px] font-medium text-slate-500">
+            {description}
+          </span>
+        </span>
+      )}
+    </NavLink>
+  );
+}
 
 export default function MainLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const location = useLocation();
+  const canEditDashboard = isAdmin();
+
+  const dashboardState = useDashboardState({
+    mockData: MOCK_DATA,
+    initialLayouts,
+    alertsData: ALERTS_DATA,
+  });
 
   const {
     autoArrange,
     time,
     equipment,
     setEquipment,
-
     setIsModalOpen,
     setIsEqModalOpen,
     setAutoArrange,
-  } = useDashboardState({
-    mockData: MOCK_DATA,
-    initialLayouts,
-    alertsData: ALERTS_DATA,
-  });
+    arrangeWidgets,
+  } = dashboardState;
 
   useEquipmentWebSocket(setEquipment);
+
+  const pageTitle = useMemo(() => {
+    const current = navItems.find((item) => location.pathname.startsWith(item.to));
+    return current?.label ?? "Dashboard";
+  }, [location.pathname]);
+
   return (
     <div className="flex min-h-screen bg-[#0B0F1A] text-slate-200">
+      {isMobileSidebarOpen && (
+        <button
+          type="button"
+          className="fixed inset-0 z-40 bg-black/70 md:hidden"
+          aria-label="사이드바 닫기"
+          onClick={() => setIsMobileSidebarOpen(false)}
+        />
+      )}
 
-      {/* 사이드바 */}
-       <aside
-        className={`
-          ${isSidebarOpen ? "w-64" : "w-20"}
-          transition-all duration-300 ease-in-out
-          border-r border-slate-800 bg-[#0D1117]/95 backdrop-blur-md
-          flex flex-col
-        `}
+      <aside
+        className={[
+          "fixed inset-y-0 left-0 z-50 flex h-screen w-64 shrink-0 flex-col border-r border-slate-800 bg-[#0D1117]/95 backdrop-blur transition-transform duration-300 ease-in-out md:sticky md:z-auto md:translate-x-0 md:transition-[width]",
+          isMobileSidebarOpen ? "translate-x-0" : "-translate-x-full",
+          isSidebarOpen ? "md:w-64" : "md:w-20",
+        ].join(" ")}
       >
-        <div className="h-16 border-b border-slate-800 flex items-center justify-between px-4">
-          <div className="flex items-center gap-3 overflow-hidden">
-            <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shrink-0">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
-                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+        <div className="flex h-16 items-center justify-between border-b border-slate-800 px-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/15">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M13 2 3 14h8l-1 8 11-14h-8l1-6Z" />
               </svg>
             </div>
 
             {isSidebarOpen && (
               <div className="min-w-0">
-                <div className="text-sm font-black text-white uppercase tracking-tight">
+                <div className="truncate text-sm font-black uppercase tracking-tight text-white">
                   Nexus OS
                 </div>
-                <div className="text-[10px] text-slate-500 font-mono">
+                <div className="truncate text-[10px] font-mono text-slate-500">
                   Control Panel
                 </div>
               </div>
@@ -64,95 +146,132 @@ export default function MainLayout() {
           </div>
 
           <button
+            type="button"
             onClick={() => setIsSidebarOpen((prev) => !prev)}
-            className="ml-2 text-slate-400 hover:text-white text-sm px-2 py-1 rounded-lg hover:bg-slate-800 transition"
+            className="ml-2 hidden rounded-md px-2 py-1 text-sm text-slate-400 transition-colors hover:bg-slate-800 hover:text-white md:block"
+            aria-label={isSidebarOpen ? "사이드바 접기" : "사이드바 펼치기"}
           >
-            {isSidebarOpen ? "◀" : "▶"}
+            {isSidebarOpen ? "<" : ">"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsMobileSidebarOpen(false)}
+            className="ml-2 rounded-md px-2 py-1 text-sm text-slate-400 transition-colors hover:bg-slate-800 hover:text-white md:hidden"
+            aria-label="사이드바 닫기"
+          >
+            x
           </button>
         </div>
 
-        {/* <nav className="flex-1 p-3 space-y-2"> */}
-          {/* <SidebarItem to="/dashboard" label="Dashboard" icon="📊" open={isSidebarOpen} />
-          <SidebarItem to="/stats" label="Stats" icon="📈" open={isSidebarOpen} />
-          <SidebarItem to="/settings" label="Settings" icon="⚙️" open={isSidebarOpen} />
-        </nav> */}
+        <nav className="flex-1 space-y-2 p-3">
+          {navItems.map((item) => (
+            <div key={item.to} onClick={() => setIsMobileSidebarOpen(false)}>
+              <SidebarItem {...item} open={isSidebarOpen || isMobileSidebarOpen} />
+            </div>
+          ))}
+        </nav>
+
+        <div className="border-t border-slate-800 p-3">
+          <div
+            className={[
+              "flex items-center gap-3 rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-3",
+              isSidebarOpen ? "justify-start" : "justify-center",
+            ].join(" ")}
+          >
+            <div className="h-2 w-2 shrink-0 rounded-full bg-emerald-400 shadow-[0_0_14px_rgba(52,211,153,0.7)]" />
+            {isSidebarOpen && (
+              <div className="min-w-0">
+                <div className="truncate text-[10px] font-bold uppercase tracking-wider text-emerald-400">
+                  Live Connection
+                </div>
+                <div className="truncate text-[10px] text-slate-500">OPC-UA v2.1</div>
+              </div>
+            )}
+          </div>
+        </div>
       </aside>
 
-      {/* 메인 영역 */}
-      <div className="flex-1 flex flex-col">
-
-        {/* header */}
-        <header className="h-16 border-b border-slate-800/60 bg-[#0D1117]/80 backdrop-blur-md flex items-center px-6 justify-between sticky top-0 z-50">
-        <div className="flex items-center gap-4">
-          <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
-              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-            </svg>
-          </div>
-          <div>
-            <h1 className="text-sm font-black tracking-tight text-white uppercase">
-              {equipment.name} Dashboard
-            </h1>
-            <p className="text-[10px] text-slate-500 font-mono mt-0.5">
-              {time.toLocaleDateString()}
-              <span className="text-slate-400 ml-1">{time.toLocaleTimeString()}</span>
-            </p>
-          </div>
-        </div>
-
-        <div className="flex-grow max-w-2xl px-12">
-          <div className="relative group">
-            <div className="absolute inset-y-0 left-4 flex items-center text-indigo-400">
-              <span className="text-xs font-bold">AI</span>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="sticky top-0 z-50 flex min-h-16 flex-wrap items-center justify-between gap-3 border-b border-slate-800/60 bg-[#0D1117]/90 px-4 py-3 backdrop-blur md:px-6">
+          <div className="flex min-w-0 items-center gap-4">
+            <button
+              type="button"
+              onClick={() => setIsMobileSidebarOpen(true)}
+              className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-700 bg-slate-900 text-slate-300 md:hidden"
+              aria-label="사이드바 열기"
+            >
+              menu
+            </button>
+            <div className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/15 md:flex">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M13 2 3 14h8l-1 8 11-14h-8l1-6Z" />
+              </svg>
             </div>
-            <input
-              type="text"
-              placeholder="장비 상태를 분석하거나 위젯 배치를 명령하세요..."
-              className="w-full bg-slate-900/80 border border-slate-700/50 rounded-2xl h-11 pl-12 pr-4 text-xs outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all placeholder:text-slate-600"
-            />
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setIsEqModalOpen(true)}
-            className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-lg shadow-emerald-600/20 flex items-center gap-2"
-          >
-            ⚙️ 장비 등록
-          </button>
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-lg shadow-indigo-500/20 flex items-center gap-2"
-          >
-            <span className="text-lg">+</span> Add Widget
-          </button>
-          <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-full">
-            <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-            <span className="text-[10px] font-bold text-emerald-500 tracking-wider uppercase">
-              Live Connection
-            </span>
-          </div>
-          <div className="w-9 h-9 rounded-full bg-slate-800 border border-slate-700 overflow-hidden p-1">
-            <div className="w-full h-full rounded-full bg-indigo-500/20 flex items-center justify-center text-xs text-indigo-400 font-bold">
-              JD
+            <div className="min-w-0">
+              <h1 className="truncate text-sm font-black uppercase tracking-tight text-white">
+                {pageTitle === "Dashboard" ? `${equipment.name} Dashboard` : pageTitle}
+              </h1>
+              <p className="mt-0.5 truncate text-[10px] font-mono text-slate-500">
+                {time.toLocaleDateString()}
+                <span className="ml-1 text-slate-400">{time.toLocaleTimeString()}</span>
+              </p>
             </div>
           </div>
-        </div>
-        <button
-          onClick={() => setAutoArrange(!autoArrange)}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${autoArrange
-              ? "bg-blue-600 text-white"
-              : "bg-slate-800 text-slate-400"
-            }`}
-        >
-          Auto Arrange: {autoArrange ? "ON" : "OFF"}
-        </button>
-      </header>
 
-        {/* 페이지 내용 */}
-        <div className="flex-1">
-          <Outlet />
-        </div>
+          <div className="order-last w-full max-w-2xl md:order-none md:flex-1 md:px-6">
+            <div className="relative">
+              <div className="absolute inset-y-0 left-4 flex items-center text-cyan-400">
+                <span className="text-xs font-bold">AI</span>
+              </div>
+              <input
+                type="text"
+                placeholder="설비 상태 분석이나 위젯 배치를 입력하세요."
+                className="h-11 w-full rounded-lg border border-slate-700/70 bg-slate-900/80 pl-12 pr-4 text-xs text-slate-100 outline-none transition-all placeholder:text-slate-600 focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400"
+              />
+            </div>
+          </div>
+
+          {canEditDashboard && (
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setIsEqModalOpen(true)}
+                className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-emerald-600/20 transition-colors hover:bg-emerald-500"
+              >
+                설비 등록
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(true)}
+                className="rounded-lg bg-cyan-600 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-cyan-500/20 transition-colors hover:bg-cyan-500"
+              >
+                + Add Widget
+              </button>
+              <button
+                type="button"
+                onClick={() => setAutoArrange(!autoArrange)}
+                className={[
+                  "rounded-lg px-4 py-2 text-xs font-bold transition-colors",
+                  autoArrange ? "bg-blue-600 text-white" : "bg-slate-800 text-slate-400",
+                ].join(" ")}
+              >
+                Auto Arrange: {autoArrange ? "ON" : "OFF"}
+              </button>
+              <button
+                type="button"
+                onClick={arrangeWidgets}
+                className="rounded-lg border border-slate-700 bg-slate-900 px-4 py-2 text-xs font-bold text-slate-300 transition-colors hover:border-cyan-400 hover:text-white"
+              >
+                Arrange Now
+              </button>
+            </div>
+          )}
+        </header>
+
+        <main className="min-w-0 flex-1 overflow-x-hidden">
+          <Outlet context={{ ...dashboardState, canEditDashboard }} />
+        </main>
+        {canEditDashboard && <DashboardModals state={dashboardState} />}
       </div>
     </div>
   );

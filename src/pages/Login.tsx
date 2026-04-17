@@ -91,7 +91,7 @@ export default function Login({ onLogin }: LoginProps) {
           <div className="mb-8">
             <h2 className="text-3xl font-black tracking-tight text-white">Sign in</h2>
             <p className="mt-2 text-sm text-slate-500">
-              관리자 계정으로 로그인하여 대시보드에 접속하세요.
+              계정 권한에 따라 대시보드 편집 기능이 다르게 제공됩니다.
             </p>
           </div>
 

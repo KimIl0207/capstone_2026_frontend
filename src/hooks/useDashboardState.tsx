@@ -4,10 +4,28 @@ import type {
   DashboardItem,
   DashboardWidgetType,
   EquipmentMaster,
+  AlertItem,
   SelectedData,
 } from "../types/dashboard";
-import type { Layout } from "react-grid-layout";
+import type { Layout, ResponsiveLayouts } from "react-grid-layout";
 
+const DASHBOARD_LAYOUT_STORAGE_KEY = "myFoundryDashboard";
+export type DashboardBreakpoint = "lg" | "md" | "sm";
+export type DashboardLayouts = Partial<Record<DashboardBreakpoint, DashboardItem[]>>;
+
+export const DASHBOARD_BREAKPOINTS: Record<DashboardBreakpoint, number> = {
+  lg: 1200,
+  md: 996,
+  sm: 768,
+};
+
+export const DASHBOARD_COLS: Record<DashboardBreakpoint, number> = {
+  lg: 12,
+  md: 10,
+  sm: 6,
+};
+
+const DASHBOARD_BREAKPOINT_KEYS: DashboardBreakpoint[] = ["lg", "md", "sm"];
 
 // 대시보드 상태 관리를 위한 커스텀 훅
 type WidgetConfig = {
@@ -19,8 +37,74 @@ type WidgetConfig = {
 // useDashboardState 훅의 파라미터 타입 정의
 type UseDashboardStateParams = {
   mockData: UniversalEquipment;
-  initialLayouts: Record<string, DashboardItem[]>;
-  alertsData: any[];
+  initialLayouts: DashboardLayouts;
+  alertsData: AlertItem[];
+};
+
+const isDashboardItemArray = (value: unknown): value is DashboardItem[] => {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (item) =>
+        item &&
+        typeof item === "object" &&
+        "i" in item &&
+        "x" in item &&
+        "y" in item &&
+        "w" in item &&
+        "h" in item,
+    )
+  );
+};
+
+const normalizeStoredLayouts = (
+  stored: unknown,
+  fallback: DashboardLayouts,
+): DashboardLayouts => {
+  if (isDashboardItemArray(stored)) {
+    return { lg: stored };
+  }
+
+  if (!stored || typeof stored !== "object") {
+    return { lg: fallback.lg ?? [] };
+  }
+
+  const next: DashboardLayouts = {};
+
+  DASHBOARD_BREAKPOINT_KEYS.forEach((breakpoint) => {
+    const value = (stored as Record<string, unknown>)[breakpoint];
+    if (isDashboardItemArray(value)) {
+      next[breakpoint] = value;
+    }
+  });
+
+  return next.lg ? next : { lg: fallback.lg ?? [] };
+};
+
+const getBaseLayout = (layouts: DashboardLayouts, fallback: DashboardLayouts) => {
+  return layouts.lg ?? fallback.lg ?? [];
+};
+
+const mergeLayoutMetadata = (
+  sourceItems: DashboardItem[],
+  layout: Layout,
+): DashboardItem[] => {
+  return sourceItems.map((widget) => {
+    const found = layout.find((item) => item.i === widget.i);
+
+    return found
+      ? {
+        ...widget,
+        x: found.x,
+        y: found.y,
+        w: found.w,
+        h: found.h,
+        static: found.static ?? widget.static,
+        isDraggable: found.isDraggable ?? widget.isDraggable,
+        isResizable: found.isResizable ?? widget.isResizable,
+      }
+      : widget;
+  });
 };
 
 // useDashboardState 훅 정의
@@ -47,7 +131,20 @@ export function useDashboardState({
   const [alerts] = useState(alertsData);
   const [time, setTime] = useState(new Date());
 
-  const [layouts, setLayouts] = useState<DashboardItem[]>(initialLayouts.lg);
+  const [responsiveLayouts, setResponsiveLayouts] = useState<DashboardLayouts>(() => {
+    try {
+      const savedLayout = localStorage.getItem(DASHBOARD_LAYOUT_STORAGE_KEY);
+      if (!savedLayout) return { lg: initialLayouts.lg ?? [] };
+
+      const parsed = JSON.parse(savedLayout);
+      return normalizeStoredLayouts(parsed, initialLayouts);
+    } catch (e) {
+      console.error("Layout 로딩 실패:", e);
+      return { lg: initialLayouts.lg ?? [] };
+    }
+  });
+  const [currentBreakpoint, setCurrentBreakpoint] = useState<DashboardBreakpoint>("lg");
+  const layouts = getBaseLayout(responsiveLayouts, initialLayouts);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newWidgetConfig, setNewWidgetConfig] = useState<WidgetConfig>({
     type: "GAUGE",
@@ -63,27 +160,18 @@ export function useDashboardState({
   const [autoArrange, setAutoArrange] = useState(true);
   const skipNextLayoutChange = useRef(false);
 
-  // 대시보드 레이아웃을 로컬 스토리지에서 불러오고, 변경될 때마다 저장하는 효과
+  // 헤더 시계를 최신 상태로 유지
   useEffect(() => {
-    const savedLayout = localStorage.getItem("myFoundryDashboard");
-    if (!savedLayout) return;
-
-    try {
-      const parsed = JSON.parse(savedLayout);
-      if (parsed && parsed.length > 0) {
-        setLayouts(parsed);
-      }
-    } catch (e) {
-      console.error("Layout 로딩 실패:", e);
-    }
+    const timer = window.setInterval(() => setTime(new Date()), 1000);
+    return () => window.clearInterval(timer);
   }, []);
 
   // 레이아웃이 변경될 때마다 로컬 스토리지에 저장
   useEffect(() => {
     if (layouts.length > 0) {
-      localStorage.setItem("myFoundryDashboard", JSON.stringify(layouts));
+      localStorage.setItem(DASHBOARD_LAYOUT_STORAGE_KEY, JSON.stringify(responsiveLayouts));
     }
-  }, [layouts]);
+  }, [layouts.length, responsiveLayouts]);
 
   const compactWidgets = (items: DashboardItem[], cols = 12) => {
     const pinned = items.filter(item => item.pinned);
@@ -134,37 +222,91 @@ export function useDashboardState({
     return [...pinned, ...reorderedMovable];
   };
 
+  const updateLayouts = (
+    updater: (
+      items: DashboardItem[],
+      breakpoint: DashboardBreakpoint,
+    ) => DashboardItem[],
+  ) => {
+    setResponsiveLayouts((prev) => {
+      const base = getBaseLayout(prev, initialLayouts);
+      const next: DashboardLayouts = {};
+
+      DASHBOARD_BREAKPOINT_KEYS.forEach((breakpoint) => {
+        next[breakpoint] = updater(prev[breakpoint] ?? base, breakpoint);
+      });
+
+      return next;
+    });
+  };
+
+  const setLayouts = (
+    value: DashboardItem[] | ((previous: DashboardItem[]) => DashboardItem[]),
+  ) => {
+    setResponsiveLayouts((prev) => {
+      const previous = getBaseLayout(prev, initialLayouts);
+      const nextLg = typeof value === "function" ? value(previous) : value;
+      return { ...prev, lg: nextLg };
+    });
+  };
+
   const removeWidget = (widgetId: string) => {
-    setLayouts((prev) => {
-      const next = prev.filter((l) => l.i !== widgetId);
-      return autoArrange ? compactWidgets(next) : next;
+    updateLayouts((items, breakpoint) => {
+      const next = items.filter((item) => item.i !== widgetId);
+      return autoArrange ? compactWidgets(next, DASHBOARD_COLS[breakpoint]) : next;
     });
   };
   
-  const applyLayout = (currentLayout: Layout, shouldCompact = false) => {
-    setLayouts(prev => {
-      const updated = prev.map(widget => {
-        if (widget.pinned) return widget;
+  const applyLayout = (
+    currentLayout: Layout,
+    shouldCompact = false,
+    breakpoint: DashboardBreakpoint = currentBreakpoint,
+  ) => {
+    setResponsiveLayouts((prev) => {
+      const base = getBaseLayout(prev, initialLayouts);
+      const source = prev[breakpoint] ?? base;
+      const updated = mergeLayoutMetadata(source, currentLayout);
 
-        const found = currentLayout.find(l => l.i === widget.i);
-
-        return found
-          ? { ...widget, x: found.x, y: found.y, w: found.w, h: found.h }
-          : widget;
-      });
-
-      return shouldCompact ? compactWidgets(updated) : updated;
+      return {
+        ...prev,
+        [breakpoint]: shouldCompact
+          ? compactWidgets(updated, DASHBOARD_COLS[breakpoint])
+          : updated,
+      };
     });
   };
 
   // 대시보드 레이아웃 변경 핸들러
-  const handleLayoutChange = (currentLayout: Layout) => {
+  const handleLayoutChange = (
+    currentLayout: Layout,
+    allLayouts?: ResponsiveLayouts<DashboardBreakpoint>,
+  ) => {
     if (skipNextLayoutChange.current) {
       skipNextLayoutChange.current = false;
       return;
     }
 
+    if (allLayouts) {
+      setResponsiveLayouts((prev) => {
+        const base = getBaseLayout(prev, initialLayouts);
+        const next: DashboardLayouts = { ...prev };
+
+        DASHBOARD_BREAKPOINT_KEYS.forEach((breakpoint) => {
+          const layout = allLayouts[breakpoint];
+          if (!layout) return;
+          next[breakpoint] = mergeLayoutMetadata(prev[breakpoint] ?? base, layout);
+        });
+
+        return next;
+      });
+      return;
+    }
+
     applyLayout(currentLayout, false);
+  };
+
+  const arrangeWidgets = () => {
+    updateLayouts((items, breakpoint) => compactWidgets(items, DASHBOARD_COLS[breakpoint]));
   };
 
   // 위젯 빌더 초기화 함수
@@ -234,7 +376,7 @@ export function useDashboardState({
       h: 2,
     };
 
-    setLayouts((prev) => [...prev, newItem]);
+    updateLayouts((items) => [...items, newItem]);
     resetWidgetBuilder();
   };
 
@@ -296,8 +438,8 @@ export function useDashboardState({
   const togglePinWidget = (widgetId: string) => {
     skipNextLayoutChange.current = true; // 다음 레이아웃 변경 이벤트를 무시하도록 설정
 
-    setLayouts((prev) =>
-      prev.map((widget) =>
+    updateLayouts((items) =>
+      items.map((widget) =>
         widget.i === widgetId
           ? {
             ...widget,
@@ -315,6 +457,8 @@ export function useDashboardState({
     time,
     equipment,
     layouts,
+    responsiveLayouts,
+    currentBreakpoint,
     isModalOpen,
     isEqModalOpen,
     newWidgetConfig,
@@ -332,6 +476,8 @@ export function useDashboardState({
     setTempSelection,
     setSearchTerm,
     setLayouts,
+    setResponsiveLayouts,
+    setCurrentBreakpoint,
 
     handleLayoutChange,
     removeWidget,
@@ -344,7 +490,10 @@ export function useDashboardState({
     closeEquipmentModal,
     applyEquipmentRegistration,
     togglePinWidget,
+    arrangeWidgets,
     compactWidgets,
     applyLayout,
   };
 }
+
+export type DashboardState = ReturnType<typeof useDashboardState>;

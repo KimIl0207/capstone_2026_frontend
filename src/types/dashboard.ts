@@ -18,6 +18,11 @@ export interface DashboardItem {
   h: number;
   minW?: number;
   minH?: number;
+  maxW?: number;
+  maxH?: number;
+  static?: boolean;
+  isDraggable?: boolean;
+  isResizable?: boolean;
   type: DashboardWidgetType;
   dataKey: string | string[];
   title: string;
@@ -43,4 +48,13 @@ export interface SelectedData {
   eqId: string;
   eqName: string;
   sensorId: string;
+}
+
+export interface AlertItem {
+  id: number;
+  time: string;
+  sev: string;
+  eq: string;
+  msg: string;
+  status?: string;
 }

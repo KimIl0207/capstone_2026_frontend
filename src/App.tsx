@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
+import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import Login from "./pages/Login";
 import DashboardPage from "./pages/DashboardPage";
 import StatsPage from "./pages/StatsPage";
@@ -15,7 +15,10 @@ function LoginPageWrapper() {
     <Login
       onLogin={({ id, password }) => {
         if (id === "admin" && password === "1234") {
-          login();
+          login("admin");
+          navigate("/dashboard", { replace: true });
+        } else if (id === "user" && password === "1234") {
+          login("user");
           navigate("/dashboard", { replace: true });
         } else {
           alert("아이디 또는 비밀번호가 올바르지 않습니다.");

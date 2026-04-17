@@ -1,7 +1,9 @@
-export function AlertsContent({ alerts }: { alerts: any[] }) {
+import type { AlertItem } from "../../types/dashboard";
+
+export function AlertsContent({ alerts }: { alerts: AlertItem[] }) {
   return (
     <div className="flex-grow space-y-4 overflow-y-auto pr-2 custom-scrollbar">
-      {alerts?.map((alert: any) => (
+      {alerts?.map((alert) => (
         <div key={alert.id} className="p-4 bg-slate-900/50 border border-slate-800 rounded-2xl hover:border-rose-500/30 transition-all group/item">
           <div className="flex justify-between items-start mb-2">
             <span className="text-[10px] text-slate-600 font-mono tracking-tighter font-bold">{alert.time}</span>

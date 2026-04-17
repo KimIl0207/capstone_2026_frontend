@@ -9,20 +9,11 @@ import { LogContent } from "./widgets/LogContent";
 import { BarChartWidget } from "./widgets/BarChartWidget";
 
 import type { UniversalEquipment } from "../types/equipment";
-import type { DashboardItem } from "../types/dashboard";
+import type { AlertItem, DashboardItem } from "../types/dashboard";
 
 type TrendPoint = {
   t: string;
   [key: string]: string | number;
-};
-
-type AlertItem = {
-  id: number;
-  time: string;
-  sev: string;
-  eq: string;
-  msg: string;
-  status?: string;
 };
 
 type Props = {
