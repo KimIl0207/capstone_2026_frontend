@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { DashboardWidgetType } from "../../types/dashboard";
+import type { DashboardWidgetType, SelectedData } from "../../types/dashboard";
 import type { DashboardState } from "../../hooks/useDashboardState";
 
 type DashboardModalsProps = {
@@ -23,6 +23,50 @@ const widgetTypes: DashboardWidgetType[] = [
   "BAR_V",
   "BAR_H",
 ];
+
+const widgetTypeLabels: Record<DashboardWidgetType, string> = {
+  OEE: "KPI",
+  SENSORS: "Sensor Grid",
+  TREND: "Trend Chart",
+  ALERTS: "Alert Feed",
+  GAUGE: "Gauge",
+  DONUT: "Donut",
+  STATUS: "Status",
+  LOG: "Log",
+  BAR_V: "Vertical Bar",
+  BAR_H: "Horizontal Bar",
+};
+
+function getWidgetAvailability(type: DashboardWidgetType, selectedData: SelectedData[]) {
+  const isMulti = selectedData.length > 1;
+  const dataTypes = new Set(selectedData.map((item) => item.dataType ?? "FLOAT"));
+  const isBooleanOnly = dataTypes.size === 1 && dataTypes.has("BOOLEAN");
+  const isNumericOnly = [...dataTypes].every((dataType) => dataType === "FLOAT" || dataType === "INTEGER");
+
+  if (isMulti && (type === "GAUGE" || type === "DONUT" || type === "STATUS")) {
+    return { disabled: true, recommended: false, reason: "단일 데이터 전용" };
+  }
+
+  if (isBooleanOnly && (type === "GAUGE" || type === "TREND")) {
+    return { disabled: true, recommended: false, reason: "수치 데이터 전용" };
+  }
+
+  if (!isNumericOnly && (type === "BAR_V" || type === "BAR_H")) {
+    return { disabled: true, recommended: false, reason: "수치 데이터 전용" };
+  }
+
+  const recommended =
+    (isMulti && isNumericOnly && type === "TREND") ||
+    (!isMulti && isNumericOnly && (type === "GAUGE" || type === "TREND")) ||
+    (!isMulti && isBooleanOnly && type === "STATUS") ||
+    (type === "LOG" && !isNumericOnly);
+
+  return {
+    disabled: false,
+    recommended,
+    reason: recommended ? "추천" : "선택 가능",
+  };
+}
 
 function ModalFrame({
   title,
@@ -89,7 +133,7 @@ function WidgetBuilderModal({ state }: DashboardModalsProps) {
       <div className="min-h-0 flex-1 overflow-y-auto p-6">
         {builderStep === 1 && (
           <div className="grid gap-5 lg:grid-cols-2">
-            <section className="flex min-h-[420px] flex-col rounded-lg border border-slate-800 bg-slate-900/50 p-5">
+            <section className="flex h-[500px] min-h-0 flex-col rounded-lg border border-slate-800 bg-slate-900/50 p-5">
               <h3 className="mb-4 text-sm font-bold text-slate-300">1. 데이터 소스 선택</h3>
 
               <label className="mb-1 text-[10px] font-bold uppercase text-slate-500">
@@ -114,56 +158,61 @@ function WidgetBuilderModal({ state }: DashboardModalsProps) {
               <label className="mb-1 text-[10px] font-bold uppercase text-slate-500">
                 Sensors
               </label>
-              <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-slate-700 bg-slate-800/50">
-                <input
-                  type="search"
-                  placeholder="센서 이름 검색"
-                  value={searchTerm}
-                  onChange={(event) => setSearchTerm(event.target.value)}
-                  className="border-b border-slate-700 bg-slate-800 px-3 py-3 text-sm text-white outline-none placeholder:text-slate-500"
-                />
-                <div className="min-h-0 flex-1 space-y-1 overflow-y-auto p-2">
-                  {!tempSelection.eqId ? (
-                    <div className="flex h-full items-center justify-center text-center text-xs text-slate-500">
-                      장비를 먼저 선택해주세요.
-                    </div>
-                  ) : (
-                    allEquipments
-                      .find((equipment) => equipment.id === tempSelection.eqId)
-                      ?.sensors.filter((sensor) =>
-                        sensor.label.toLowerCase().includes(searchTerm.toLowerCase()),
-                      )
-                      .map((sensor) => (
-                        <button
-                          type="button"
-                          key={sensor.id}
-                          onClick={() =>
-                            setTempSelection({ ...tempSelection, sensorId: sensor.label })
-                          }
-                          className={[
-                            "w-full rounded-md px-3 py-2 text-left text-sm transition-colors",
-                            tempSelection.sensorId === sensor.label
-                              ? "bg-cyan-600 text-white"
-                              : "text-slate-300 hover:bg-slate-700",
-                          ].join(" ")}
-                        >
-                          {sensor.label}
-                        </button>
-                      ))
-                  )}
+              <div className="flex min-h-0 flex-1 flex-col">
+                <div className="flex h-[260px] shrink-0 flex-col overflow-hidden rounded-lg border border-slate-700 bg-slate-800/50">
+                  <input
+                    type="search"
+                    placeholder="센서 이름 검색"
+                    value={searchTerm}
+                    onChange={(event) => setSearchTerm(event.target.value)}
+                    className="border-b border-slate-700 bg-slate-800 px-3 py-3 text-sm text-white outline-none placeholder:text-slate-500"
+                  />
+                  <div className="min-h-0 flex-1 space-y-1 overflow-y-auto p-2">
+                    {!tempSelection.eqId ? (
+                      <div className="flex h-full items-center justify-center text-center text-xs text-slate-500">
+                        장비를 먼저 선택해주세요.
+                      </div>
+                    ) : (
+                      allEquipments
+                        .find((equipment) => equipment.id === tempSelection.eqId)
+                        ?.sensors.filter((sensor) =>
+                          sensor.label.toLowerCase().includes(searchTerm.toLowerCase()),
+                        )
+                        .map((sensor) => (
+                          <button
+                            type="button"
+                            key={sensor.id}
+                            onClick={() =>
+                              setTempSelection({ ...tempSelection, sensorId: sensor.label })
+                            }
+                            className={[
+                              "flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-sm transition-colors",
+                              tempSelection.sensorId === sensor.label
+                                ? "bg-cyan-600 text-white"
+                                : "text-slate-300 hover:bg-slate-700",
+                            ].join(" ")}
+                          >
+                            <span className="truncate">{sensor.label}</span>
+                            <span className="shrink-0 rounded bg-slate-950/40 px-2 py-0.5 text-[10px] text-slate-400">
+                              {sensor.dataType ?? "FLOAT"}
+                            </span>
+                          </button>
+                        ))
+                    )}
+                  </div>
                 </div>
-              </div>
 
-              <button
-                type="button"
-                onClick={addSelectedSensorToCart}
-                className="mt-4 rounded-lg border border-cyan-500/50 bg-cyan-500/10 py-3 text-sm font-bold text-cyan-300 transition-colors hover:bg-cyan-600 hover:text-white"
-              >
-                Add to Cart
-              </button>
+                <button
+                  type="button"
+                  onClick={addSelectedSensorToCart}
+                  className="mt-4 shrink-0 rounded-lg border border-cyan-500/50 bg-cyan-500/10 py-3 text-sm font-bold text-cyan-300 transition-colors hover:bg-cyan-600 hover:text-white"
+                >
+                  Add to Cart
+                </button>
+              </div>
             </section>
 
-            <section className="flex min-h-[420px] flex-col rounded-lg border border-slate-800 bg-slate-900/50 p-5">
+            <section className="flex h-[500px] min-h-0 flex-col rounded-lg border border-slate-800 bg-slate-900/50 p-5">
               <h3 className="mb-4 text-sm font-bold text-slate-300">
                 Selected Data ({selectedDataCart.length})
               </h3>
@@ -181,6 +230,9 @@ function WidgetBuilderModal({ state }: DashboardModalsProps) {
                       <div className="min-w-0">
                         <div className="truncate text-xs text-slate-400">{item.eqName}</div>
                         <div className="truncate text-sm font-bold text-white">{item.sensorId}</div>
+                        <div className="mt-1 text-[10px] font-bold uppercase text-slate-500">
+                          {item.dataType ?? "FLOAT"}
+                        </div>
                       </div>
                       <button
                         type="button"
@@ -213,9 +265,8 @@ function WidgetBuilderModal({ state }: DashboardModalsProps) {
 
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {widgetTypes.map((type) => {
-                const isMulti = selectedDataCart.length > 1;
-                const isDisabled =
-                  isMulti && (type === "GAUGE" || type === "DONUT" || type === "STATUS");
+                const availability = getWidgetAvailability(type, selectedDataCart);
+                const isDisabled = availability.disabled;
                 const isSelected = newWidgetConfig.type === type;
 
                 return (
@@ -225,17 +276,27 @@ function WidgetBuilderModal({ state }: DashboardModalsProps) {
                     disabled={isDisabled}
                     onClick={() => setNewWidgetConfig({ ...newWidgetConfig, type })}
                     className={[
-                      "rounded-lg border p-5 text-left transition-colors",
+                      "relative rounded-lg border p-5 text-left transition-colors",
                       isDisabled
                         ? "cursor-not-allowed border-slate-800 bg-slate-900 text-slate-700"
+                        : availability.recommended
+                          ? "border-emerald-400 bg-emerald-500/10 text-white shadow-lg shadow-emerald-500/10"
                         : isSelected
                           ? "border-cyan-400 bg-cyan-500/10 text-white"
                           : "border-slate-700 bg-slate-900 text-slate-300 hover:border-cyan-500",
                     ].join(" ")}
                   >
-                    <span className="block text-sm font-black">{type}</span>
+                    {availability.recommended && !isDisabled && (
+                      <span className="absolute right-3 top-3 rounded bg-emerald-500 px-2 py-0.5 text-[9px] font-black uppercase text-slate-950">
+                        추천
+                      </span>
+                    )}
+                    <span className="block text-sm font-black">{widgetTypeLabels[type]}</span>
+                    <span className="mt-1 block text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                      {type}
+                    </span>
                     <span className="mt-2 block text-xs text-slate-500">
-                      {isDisabled ? "단일 데이터 전용" : "선택 가능"}
+                      {availability.reason}
                     </span>
                   </button>
                 );

@@ -48,6 +48,7 @@ export interface SelectedData {
   eqId: string;
   eqName: string;
   sensorId: string;
+  dataType?: SensorMeta['dataType'];
 }
 
 export interface AlertItem {

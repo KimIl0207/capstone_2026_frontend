@@ -325,7 +325,9 @@ export function useDashboardState({
       return;
     }
 
-    const eqName = allEquipments.find((e) => e.id === tempSelection.eqId)?.name || "";
+    const equipment = allEquipments.find((e) => e.id === tempSelection.eqId);
+    const eqName = equipment?.name || "";
+    const sensor = equipment?.sensors.find((item) => item.label === tempSelection.sensorId);
 
     const isExist = selectedDataCart.some(
       (item) =>
@@ -337,7 +339,10 @@ export function useDashboardState({
       return;
     }
 
-    setSelectedDataCart((prev) => [...prev, { ...tempSelection, eqName }]);
+    setSelectedDataCart((prev) => [
+      ...prev,
+      { ...tempSelection, eqName, dataType: sensor?.dataType },
+    ]);
   };
 
   const removeSelectedSensorFromCart = (index: number) => {
@@ -348,6 +353,17 @@ export function useDashboardState({
     if (selectedDataCart.length === 0) {
       alert("최소 1개의 데이터를 담아주세요!");
       return;
+    }
+    const dataTypes = new Set(selectedDataCart.map((item) => item.dataType ?? "FLOAT"));
+    const isMulti = selectedDataCart.length > 1;
+    const isBooleanOnly = dataTypes.size === 1 && dataTypes.has("BOOLEAN");
+
+    if (isMulti) {
+      setNewWidgetConfig((prev) => ({ ...prev, type: "TREND" }));
+    } else if (isBooleanOnly) {
+      setNewWidgetConfig((prev) => ({ ...prev, type: "STATUS" }));
+    } else {
+      setNewWidgetConfig((prev) => ({ ...prev, type: "GAUGE" }));
     }
     setBuilderStep(2);
   };
