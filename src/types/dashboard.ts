@@ -42,6 +42,7 @@ export interface EquipmentMaster {
   name: string;
   type: string;
   sensors: SensorMeta[];
+  sensorsLoaded?: boolean;
 }
 
 export interface SelectedData {

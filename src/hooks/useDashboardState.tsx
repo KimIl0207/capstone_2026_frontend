@@ -1,4 +1,6 @@
-import { useEffect, useState, useRef } from "react";
+﻿import { useCallback, useEffect, useState, useRef, type Dispatch, type SetStateAction } from "react";
+import { getEquipmentCurrent, getMyEquipmentCurrent, searchEquipmentSensors, searchMyEquipment } from "../api/client";
+import type { EquipmentCurrentResponse, EquipmentResponse, SensorDetails, SensorResponse } from "../api/client";
 import type { UniversalEquipment } from "../types/equipment";
 import type {
   DashboardItem,
@@ -107,27 +109,98 @@ const mergeLayoutMetadata = (
   });
 };
 
+const mapEquipmentToMaster = (equipment: UniversalEquipment): EquipmentMaster => ({
+  id: equipment.id,
+  name: equipment.name,
+  type: equipment.type,
+  sensors: equipment.sensors.map((sensor, index) => ({
+    id: sensor.sensorId ?? `${equipment.id}-sensor-${index}`,
+    label: sensor.sensorId ?? sensor.label,
+    unit: sensor.unit,
+    dataType: sensor.dataType,
+  })),
+});
+
+const mapEquipmentResponseToMaster = (equipment: EquipmentResponse): EquipmentMaster => ({
+  id: String(equipment.equipmentId),
+  name: equipment.equipmentName,
+  type: equipment.field ?? "UNKNOWN",
+  sensors: [],
+  sensorsLoaded: false,
+});
+
+const mapSensorResponseToMeta = (sensor: SensorResponse) => ({
+  id: String(sensor.sensorId),
+  label: sensor.sensorName,
+  unit: "",
+});
+
+const normalizeSensorValue = (value: unknown): number => {
+  if (typeof value === "number") return value;
+  if (typeof value === "boolean") return value ? 1 : 0;
+  if (value && typeof value === "object") {
+    const payload = value as Record<string, unknown>;
+
+    return normalizeSensorValue(
+      payload.value ?? payload.currentValue ?? payload.numericValue ?? payload.data,
+    );
+  }
+
+  const numericText = String(value ?? "").replace(/,/g, "").match(/-?\d+(\.\d+)?/)?.[0] ?? "";
+  const numericValue = Number(numericText);
+  return Number.isFinite(numericValue) ? numericValue : 0;
+};
+
+const getEquipmentStatus = (status?: string): UniversalEquipment["status"] => {
+  if (status === "ERROR") return "DOWN";
+  if (status === "IDLE") return "IDLE";
+  if (status === "MAINTENANCE") return "MAINTENANCE";
+  return "RUNNING";
+};
+
+const mapCurrentResponseToEquipment = (
+  response: EquipmentCurrentResponse,
+  fallback: UniversalEquipment,
+): UniversalEquipment => {
+  const sensors = (response.current?.sensors ?? []).map((sensor, index) => {
+    const sensorId = sensor.sensorId ?? sensor.sensorName ?? sensor.name ?? `sensor-${index}`;
+    const rawValue = sensor.value ?? sensor.currentValue ?? sensor.numericValue;
+
+    return {
+      sensorId,
+      label: sensor.sensorName ?? sensor.name ?? sensorId,
+      value: normalizeSensorValue(rawValue),
+      unit: sensor.unit ?? "",
+      dataType: sensor.dataType,
+      status: response.current?.status === "ERROR" ? "CRITICAL" : "NORMAL",
+    };
+  });
+
+  if (sensors.length === 0) {
+    console.warn("[Equipment Current] Current response has no sensors", response);
+  }
+
+  return {
+    ...fallback,
+    id: String(response.equipmentId),
+    name: response.equipmentName,
+    type: response.field ?? fallback.type,
+    status: getEquipmentStatus(response.current?.status),
+    lastUpdate: response.current?.timestamp ?? new Date().toISOString(),
+    sensors,
+  };
+};
+
 // useDashboardState 훅 정의
 export function useDashboardState({
   mockData,
   initialLayouts,
   alertsData,
 }: UseDashboardStateParams) {
-  const [allEquipments, setAllEquipments] = useState<EquipmentMaster[]>([
-    {
-      id: mockData.id,
-      name: mockData.name,
-      type: mockData.type,
-      sensors: mockData.sensors.map((s, index) => ({
-        id: `sns-mock-${index}`,
-        label: s.label,
-        unit: s.unit,
-      })),
-    },
-  ]);
+  const [allEquipments, setAllEquipments] = useState<EquipmentMaster[]>([]);
 
   const [isEqModalOpen, setIsEqModalOpen] = useState(false);
-  const [equipment, setEquipment] = useState<UniversalEquipment>(mockData);
+  const [equipment, setEquipmentState] = useState<UniversalEquipment>(mockData);
   const [alerts] = useState(alertsData);
   const [time, setTime] = useState(new Date());
 
@@ -156,9 +229,62 @@ export function useDashboardState({
   const [selectedDataCart, setSelectedDataCart] = useState<SelectedData[]>([]);
   const [tempSelection, setTempSelection] = useState({ eqId: "", sensorId: "" });
   const [searchTerm, setSearchTerm] = useState("");
+  const [isNetworkScanning, setIsNetworkScanning] = useState(false);
+  const [loadingSensorEquipmentId, setLoadingSensorEquipmentId] = useState<string | null>(null);
 
   const [autoArrange, setAutoArrange] = useState(true);
   const skipNextLayoutChange = useRef(false);
+
+  const upsertEquipmentMaster = useCallback((nextEquipment: UniversalEquipment) => {
+    const nextMaster = mapEquipmentToMaster(nextEquipment);
+
+    setAllEquipments((prev) => {
+      const existingIndex = prev.findIndex((item) => item.id === nextMaster.id);
+
+      if (existingIndex === -1) {
+        return [...prev, nextMaster];
+      }
+
+      return prev.map((item, index) => (index === existingIndex ? nextMaster : item));
+    });
+  }, []);
+
+  const setEquipment: Dispatch<SetStateAction<UniversalEquipment>> = useCallback((value) => {
+    setEquipmentState((prev) => {
+      const nextEquipment = typeof value === "function" ? value(prev) : value;
+      upsertEquipmentMaster(nextEquipment);
+      return nextEquipment;
+    });
+  }, [upsertEquipmentMaster]);
+
+  const applyCurrentEquipment = useCallback((response: EquipmentCurrentResponse) => {
+    setEquipment((prev) => mapCurrentResponseToEquipment(response, prev));
+  }, [setEquipment]);
+
+  const loadEquipmentCurrent = useCallback(async (equipmentId: string | number) => {
+    try {
+      const response = await getEquipmentCurrent(equipmentId);
+
+      if (response.data) {
+        applyCurrentEquipment(response.data);
+      }
+    } catch (error) {
+      console.error("[Equipment Current] Failed to load equipment current", error);
+    }
+  }, [applyCurrentEquipment]);
+
+  const loadInitialEquipmentCurrent = useCallback(async () => {
+    try {
+      const response = await getMyEquipmentCurrent();
+      const firstEquipment = response.data?.[0];
+
+      if (firstEquipment) {
+        applyCurrentEquipment(firstEquipment);
+      }
+    } catch (error) {
+      console.error("[Equipment Current] Failed to load current sensor values", error);
+    }
+  }, [applyCurrentEquipment]);
 
   // 헤더 시계를 최신 상태로 유지
   useEffect(() => {
@@ -166,7 +292,16 @@ export function useDashboardState({
     return () => window.clearInterval(timer);
   }, []);
 
-  // 레이아웃이 변경될 때마다 로컬 스토리지에 저장
+  useEffect(() => {
+    void loadInitialEquipmentCurrent();
+
+    const timer = window.setInterval(() => {
+      void loadInitialEquipmentCurrent();
+    }, 5000);
+
+    return () => window.clearInterval(timer);
+  }, [loadInitialEquipmentCurrent]);
+
   useEffect(() => {
     if (layouts.length > 0) {
       localStorage.setItem(DASHBOARD_LAYOUT_STORAGE_KEY, JSON.stringify(responsiveLayouts));
@@ -276,7 +411,6 @@ export function useDashboardState({
     });
   };
 
-  // 대시보드 레이아웃 변경 핸들러
   const handleLayoutChange = (
     currentLayout: Layout,
     allLayouts?: ResponsiveLayouts<DashboardBreakpoint>,
@@ -396,49 +530,77 @@ export function useDashboardState({
     resetWidgetBuilder();
   };
 
-  const generateMassiveMockData = (): EquipmentMaster[] => {
-    const massiveData: EquipmentMaster[] = [];
-    const types = ["CVD", "ETCH", "PVD", "DIFFUSION", "CLEANING"];
+  const loadEquipmentSensors = useCallback(async (equipmentId: string | number, keyword = "", force = false) => {
+    const equipmentKey = String(equipmentId);
+    const currentEquipment = allEquipments.find((item) => item.id === equipmentKey);
 
-    for (let i = 1; i <= 100; i++) {
-      const type = types[i % types.length];
-      massiveData.push({
-        id: `EQ-${String(i).padStart(3, "0")}`,
-        name: `${type} System-${String(i).padStart(3, "0")}`,
-        type,
-        sensors: Array.from({ length: 50 }, (_, j) => {
-          const dataType =
-            j % 3 === 0 ? "FLOAT" : j % 3 === 1 ? "BOOLEAN" : "INTEGER";
-
-          let label = "";
-          let unit = "";
-
-          if (dataType === "FLOAT") {
-            label = `Temp_Sensor_${j}`;
-            unit = "°C";
-          } else if (dataType === "BOOLEAN") {
-            label = `Power_Status_${j}`;
-            unit = "BOOL";
-          } else {
-            label = `Cycle_Count_${j}`;
-            unit = "cnt";
-          }
-
-          return {
-            id: `sns-${i}-${j}`,
-            label,
-            unit,
-            dataType,
-          };
-        }),
-      });
+    if (!force && !keyword && currentEquipment?.sensorsLoaded) {
+      return currentEquipment.sensors;
     }
 
-    return massiveData;
-  };
+    setLoadingSensorEquipmentId(equipmentKey);
 
-  const startNetworkScan = () => {
-    setAllEquipments(generateMassiveMockData());
+    try {
+      const sensorsResponse = await searchEquipmentSensors(equipmentId, keyword);
+      const sensors = (sensorsResponse.data ?? []).map(mapSensorResponseToMeta);
+
+      setAllEquipments((prev) =>
+        prev.map((item) =>
+          item.id === equipmentKey
+            ? {
+              ...item,
+              sensors,
+              sensorsLoaded: true,
+            }
+            : item,
+        ),
+      );
+
+      return sensors;
+    } catch (error) {
+      console.error("[Sensors] Failed to load equipment sensors", error);
+      alert(error instanceof Error ? error.message : "센서 목록을 불러오지 못했습니다.");
+      return [];
+    } finally {
+      setLoadingSensorEquipmentId((prev) => (prev === equipmentKey ? null : prev));
+    }
+  }, [allEquipments]);
+
+  const selectEquipmentForDiscovery = useCallback((equipmentId: string) => {
+    setTempSelection({ eqId: equipmentId, sensorId: "" });
+
+    if (equipmentId) {
+      void loadEquipmentSensors(equipmentId);
+      void loadEquipmentCurrent(equipmentId);
+    }
+  }, [loadEquipmentCurrent, loadEquipmentSensors]);
+
+  const startNetworkScan = async () => {
+    setIsNetworkScanning(true);
+
+    try {
+      const equipmentResponse = await searchMyEquipment();
+      const equipments = equipmentResponse.data ?? [];
+      const equipmentMasters = equipments.map(mapEquipmentResponseToMaster);
+
+      setAllEquipments(equipmentMasters);
+      setTempSelection((prev) => {
+        if (!prev.eqId || equipmentMasters.some((item) => item.id === prev.eqId)) {
+          return prev;
+        }
+
+        return { eqId: "", sensorId: "" };
+      });
+
+      if (tempSelection.eqId && equipmentMasters.some((item) => item.id === tempSelection.eqId)) {
+        void loadEquipmentSensors(tempSelection.eqId, "", true);
+      }
+    } catch (error) {
+      console.error("[Network Scan] Failed to load equipment", error);
+      alert(error instanceof Error ? error.message : "장비 목록을 불러오지 못했습니다.");
+    } finally {
+      setIsNetworkScanning(false);
+    }
   };
 
   const closeEquipmentModal = () => {
@@ -477,6 +639,8 @@ export function useDashboardState({
     currentBreakpoint,
     isModalOpen,
     isEqModalOpen,
+    isNetworkScanning,
+    loadingSensorEquipmentId,
     newWidgetConfig,
     builderStep,
     selectedDataCart,
@@ -502,6 +666,9 @@ export function useDashboardState({
     removeSelectedSensorFromCart,
     goToBuilderStep2,
     addWidgetToDashboard,
+    loadEquipmentCurrent,
+    loadEquipmentSensors,
+    selectEquipmentForDiscovery,
     startNetworkScan,
     closeEquipmentModal,
     applyEquipmentRegistration,

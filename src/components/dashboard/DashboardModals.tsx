@@ -26,15 +26,15 @@ const widgetTypes: DashboardWidgetType[] = [
 
 const widgetTypeLabels: Record<DashboardWidgetType, string> = {
   OEE: "KPI",
-  SENSORS: "Sensor Grid",
-  TREND: "Trend Chart",
-  ALERTS: "Alert Feed",
-  GAUGE: "Gauge",
-  DONUT: "Donut",
-  STATUS: "Status",
-  LOG: "Log",
-  BAR_V: "Vertical Bar",
-  BAR_H: "Horizontal Bar",
+  SENSORS: "센서 그리드",
+  TREND: "추세 차트",
+  ALERTS: "알림 피드",
+  GAUGE: "게이지",
+  DONUT: "도넛",
+  STATUS: "상태",
+  LOG: "로그",
+  BAR_V: "세로 막대",
+  BAR_H: "가로 막대",
 };
 
 function getWidgetAvailability(type: DashboardWidgetType, selectedData: SelectedData[]) {
@@ -112,11 +112,13 @@ function WidgetBuilderModal({ state }: DashboardModalsProps) {
     newWidgetConfig,
     selectedDataCart,
     tempSelection,
+    loadingSensorEquipmentId,
     searchTerm,
     setBuilderStep,
     setNewWidgetConfig,
     setSearchTerm,
     setTempSelection,
+    selectEquipmentForDiscovery,
     resetWidgetBuilder,
     addSelectedSensorToCart,
     removeSelectedSensorFromCart,
@@ -126,7 +128,7 @@ function WidgetBuilderModal({ state }: DashboardModalsProps) {
 
   return (
     <ModalFrame
-      title={`Widget Builder - Step ${builderStep}/2`}
+      title={`위젯 만들기 - ${builderStep}/2단계`}
       subtitle="데이터 소스를 고르고 시각화 유형을 선택합니다."
       onClose={resetWidgetBuilder}
     >
@@ -143,7 +145,7 @@ function WidgetBuilderModal({ state }: DashboardModalsProps) {
                 value={tempSelection.eqId}
                 className="mb-4 rounded-lg border border-slate-700 bg-slate-800 p-3 text-sm text-white outline-none transition-colors focus:border-cyan-400"
                 onChange={(event) => {
-                  setTempSelection({ eqId: event.target.value, sensorId: "" });
+                  selectEquipmentForDiscovery(event.target.value);
                   setSearchTerm("");
                 }}
               >
@@ -171,6 +173,10 @@ function WidgetBuilderModal({ state }: DashboardModalsProps) {
                     {!tempSelection.eqId ? (
                       <div className="flex h-full items-center justify-center text-center text-xs text-slate-500">
                         장비를 먼저 선택해주세요.
+                      </div>
+                    ) : loadingSensorEquipmentId === tempSelection.eqId ? (
+                      <div className="flex h-full items-center justify-center text-center text-xs text-slate-500">
+                        센서 목록을 불러오는 중입니다.
                       </div>
                     ) : (
                       allEquipments
@@ -207,19 +213,19 @@ function WidgetBuilderModal({ state }: DashboardModalsProps) {
                   onClick={addSelectedSensorToCart}
                   className="mt-4 shrink-0 rounded-lg border border-cyan-500/50 bg-cyan-500/10 py-3 text-sm font-bold text-cyan-300 transition-colors hover:bg-cyan-600 hover:text-white"
                 >
-                  Add to Cart
+                  선택 목록에 추가
                 </button>
               </div>
             </section>
 
             <section className="flex h-[500px] min-h-0 flex-col rounded-lg border border-slate-800 bg-slate-900/50 p-5">
               <h3 className="mb-4 text-sm font-bold text-slate-300">
-                Selected Data ({selectedDataCart.length})
+                선택된 데이터 ({selectedDataCart.length})
               </h3>
               <div className="min-h-0 flex-1 space-y-2 overflow-y-auto">
                 {selectedDataCart.length === 0 ? (
                   <div className="flex h-full items-center justify-center text-sm text-slate-600">
-                    담긴 데이터가 없습니다.
+                    선택된 데이터가 없습니다.
                   </div>
                 ) : (
                   selectedDataCart.map((item, index) => (
@@ -239,7 +245,7 @@ function WidgetBuilderModal({ state }: DashboardModalsProps) {
                         onClick={() => removeSelectedSensorFromCart(index)}
                         className="rounded-md bg-rose-500/10 px-2 py-1 text-xs font-bold text-rose-400 transition-colors hover:bg-rose-500/20"
                       >
-                        Remove
+                        제거
                       </button>
                     </div>
                   ))
@@ -281,9 +287,9 @@ function WidgetBuilderModal({ state }: DashboardModalsProps) {
                         ? "cursor-not-allowed border-slate-800 bg-slate-900 text-slate-700"
                         : availability.recommended
                           ? "border-emerald-400 bg-emerald-500/10 text-white shadow-lg shadow-emerald-500/10"
-                        : isSelected
-                          ? "border-cyan-400 bg-cyan-500/10 text-white"
-                          : "border-slate-700 bg-slate-900 text-slate-300 hover:border-cyan-500",
+                          : isSelected
+                            ? "border-cyan-400 bg-cyan-500/10 text-white"
+                            : "border-slate-700 bg-slate-900 text-slate-300 hover:border-cyan-500",
                     ].join(" ")}
                   >
                     {availability.recommended && !isDisabled && (
@@ -314,7 +320,7 @@ function WidgetBuilderModal({ state }: DashboardModalsProps) {
               onClick={resetWidgetBuilder}
               className="rounded-lg bg-slate-800 px-5 py-2 text-sm font-bold text-slate-400 transition-colors hover:bg-slate-700"
             >
-              Cancel
+              취소
             </button>
             <button
               type="button"
@@ -322,7 +328,7 @@ function WidgetBuilderModal({ state }: DashboardModalsProps) {
               className="rounded-lg bg-cyan-600 px-5 py-2 text-sm font-bold text-white transition-colors hover:bg-cyan-500 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-500"
               disabled={selectedDataCart.length === 0}
             >
-              Next Step
+              다음 단계
             </button>
           </>
         ) : (
@@ -332,14 +338,14 @@ function WidgetBuilderModal({ state }: DashboardModalsProps) {
               onClick={() => setBuilderStep(1)}
               className="rounded-lg bg-slate-800 px-5 py-2 text-sm font-bold text-slate-400 transition-colors hover:bg-slate-700"
             >
-              Back
+              이전
             </button>
             <button
               type="button"
               onClick={addWidgetToDashboard}
               className="rounded-lg bg-emerald-600 px-5 py-2 text-sm font-bold text-white transition-colors hover:bg-emerald-500"
             >
-              Add to Dashboard
+              대시보드에 추가
             </button>
           </>
         )}
@@ -351,8 +357,10 @@ function WidgetBuilderModal({ state }: DashboardModalsProps) {
 function EquipmentDiscoveryModal({ state }: DashboardModalsProps) {
   const {
     allEquipments,
+    isNetworkScanning,
+    loadingSensorEquipmentId,
     tempSelection,
-    setTempSelection,
+    selectEquipmentForDiscovery,
     startNetworkScan,
     closeEquipmentModal,
     applyEquipmentRegistration,
@@ -362,7 +370,7 @@ function EquipmentDiscoveryModal({ state }: DashboardModalsProps) {
 
   return (
     <ModalFrame
-      title="Auto Discovery"
+      title="자동 검색"
       subtitle="게이트웨이에 연결된 장치와 하위 태그를 확인합니다."
       maxWidth="max-w-5xl"
       onClose={closeEquipmentModal}
@@ -378,9 +386,10 @@ function EquipmentDiscoveryModal({ state }: DashboardModalsProps) {
           <button
             type="button"
             onClick={startNetworkScan}
+            disabled={isNetworkScanning}
             className="rounded-lg bg-cyan-600 px-5 py-3 text-sm font-black text-white transition-colors hover:bg-cyan-500"
           >
-            Start Network Scan
+            {isNetworkScanning ? "스캔 중..." : "네트워크 스캔 시작"}
           </button>
         </div>
 
@@ -395,11 +404,15 @@ function EquipmentDiscoveryModal({ state }: DashboardModalsProps) {
               </span>
             </header>
             <div className="min-h-0 flex-1 space-y-1 overflow-y-auto p-2">
-              {allEquipments.map((equipment) => (
+              {allEquipments.length === 0 ? (
+                <div className="flex h-full items-center justify-center px-4 text-center text-xs text-slate-500">
+                  스캔된 장비가 없습니다.
+                </div>
+              ) : allEquipments.map((equipment) => (
                 <button
                   type="button"
                   key={equipment.id}
-                  onClick={() => setTempSelection({ eqId: equipment.id, sensorId: "" })}
+                  onClick={() => selectEquipmentForDiscovery(equipment.id)}
                   className={[
                     "flex w-full items-center justify-between gap-3 rounded-lg border px-4 py-3 text-left text-sm transition-colors",
                     tempSelection.eqId === equipment.id
@@ -409,7 +422,7 @@ function EquipmentDiscoveryModal({ state }: DashboardModalsProps) {
                 >
                   <span className="truncate">{equipment.name}</span>
                   <span className="shrink-0 rounded-md bg-slate-800 px-2 py-1 text-[9px] text-slate-400">
-                    {equipment.sensors.length} Tags
+                    {equipment.sensorsLoaded ? equipment.sensors.length : "-"} Tags
                   </span>
                 </button>
               ))}
@@ -426,6 +439,14 @@ function EquipmentDiscoveryModal({ state }: DashboardModalsProps) {
               {!selectedEquipment ? (
                 <div className="col-span-full flex min-h-72 items-center justify-center text-center text-sm text-slate-600">
                   장비를 선택하면 하위 태그가 표시됩니다.
+                </div>
+              ) : loadingSensorEquipmentId === selectedEquipment.id ? (
+                <div className="col-span-full flex min-h-72 items-center justify-center text-center text-sm text-slate-600">
+                  센서 목록을 불러오는 중입니다.
+                </div>
+              ) : selectedEquipment.sensors.length === 0 ? (
+                <div className="col-span-full flex min-h-72 items-center justify-center text-center text-sm text-slate-600">
+                  등록된 센서가 없습니다.
                 </div>
               ) : (
                 selectedEquipment.sensors.map((sensor) => (
@@ -457,14 +478,14 @@ function EquipmentDiscoveryModal({ state }: DashboardModalsProps) {
             onClick={closeEquipmentModal}
             className="rounded-lg bg-slate-800 px-5 py-2 text-sm font-bold text-slate-400 transition-colors hover:bg-slate-700"
           >
-            Cancel
+            취소
           </button>
           <button
             type="button"
             onClick={applyEquipmentRegistration}
             className="rounded-lg bg-emerald-600 px-5 py-2 text-sm font-bold text-white transition-colors hover:bg-emerald-500"
           >
-            Apply & Register
+            적용 및 등록
           </button>
         </div>
       </footer>

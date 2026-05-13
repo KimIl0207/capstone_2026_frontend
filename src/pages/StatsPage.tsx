@@ -15,7 +15,7 @@ export default function StatsPage() {
       description="설비 성능, 가동률, 알림 추이를 한 곳에서 확인합니다."
       actions={
         <button className="rounded-lg border border-slate-700 bg-slate-900 px-4 py-2 text-xs font-bold text-slate-300 transition-colors hover:border-cyan-400 hover:text-white">
-          Export Report
+          보고서 내보내기
         </button>
       }
     >

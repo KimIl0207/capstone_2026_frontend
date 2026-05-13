@@ -15,19 +15,19 @@ import "react-resizable/css/styles.css";
 const navItems = [
   {
     to: "/dashboard",
-    label: "Dashboard",
+    label: "대시보드",
     description: "실시간 설비 모니터링",
     icon: "M4 13h6V4H4v9Zm10 7h6V4h-6v16ZM4 20h6v-5H4v5Z",
   },
   {
     to: "/stats",
-    label: "Stats",
+    label: "통계",
     description: "운영 지표 분석",
     icon: "M5 19V9h3v10H5Zm6 0V5h3v14h-3Zm6 0v-7h3v7h-3Z",
   },
   {
     to: "/settings",
-    label: "Settings",
+    label: "설정",
     description: "대시보드 환경 설정",
     icon: "M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Zm8.4-3.5c0-.4 0-.8-.1-1.2l2-1.5-2-3.5-2.4 1a8.7 8.7 0 0 0-2-1.2L15.5 3h-4l-.4 2.6c-.7.3-1.4.7-2 1.2l-2.4-1-2 3.5 2 1.5a9.5 9.5 0 0 0 0 2.4l-2 1.5 2 3.5 2.4-1c.6.5 1.3.9 2 1.2l.4 2.6h4l.4-2.6c.7-.3 1.4-.7 2-1.2l2.4 1 2-3.5-2-1.5c.1-.4.1-.8.1-1.2Z",
   },
@@ -104,7 +104,7 @@ export default function MainLayout() {
 
   const pageTitle = useMemo(() => {
     const current = navItems.find((item) => location.pathname.startsWith(item.to));
-    return current?.label ?? "Dashboard";
+    return current?.label ?? "대시보드";
   }, [location.pathname]);
 
   return (
@@ -139,7 +139,7 @@ export default function MainLayout() {
                   Nexus OS
                 </div>
                 <div className="truncate text-[10px] font-mono text-slate-500">
-                  Control Panel
+                  제어 패널
                 </div>
               </div>
             )}
@@ -200,7 +200,7 @@ export default function MainLayout() {
               className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-700 bg-slate-900 text-slate-300 md:hidden"
               aria-label="사이드바 열기"
             >
-              menu
+              메뉴
             </button>
             <div className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/15 md:flex">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -209,7 +209,7 @@ export default function MainLayout() {
             </div>
             <div className="min-w-0">
               <h1 className="truncate text-sm font-black uppercase tracking-tight text-white">
-                {pageTitle === "Dashboard" ? `${equipment.name} Dashboard` : pageTitle}
+                {pageTitle === "대시보드" ? `${equipment.name} 대시보드` : pageTitle}
               </h1>
               <p className="mt-0.5 truncate text-[10px] font-mono text-slate-500">
                 {time.toLocaleDateString()}
@@ -245,7 +245,7 @@ export default function MainLayout() {
                 onClick={() => setIsModalOpen(true)}
                 className="rounded-lg bg-cyan-600 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-cyan-500/20 transition-colors hover:bg-cyan-500"
               >
-                + Add Widget
+                + 위젯 추가
               </button>
               <button
                 type="button"
@@ -255,14 +255,14 @@ export default function MainLayout() {
                   autoArrange ? "bg-blue-600 text-white" : "bg-slate-800 text-slate-400",
                 ].join(" ")}
               >
-                Auto Arrange: {autoArrange ? "ON" : "OFF"}
+                자동 정렬: {autoArrange ? "켜짐" : "꺼짐"}
               </button>
               <button
                 type="button"
                 onClick={arrangeWidgets}
                 className="rounded-lg border border-slate-700 bg-slate-900 px-4 py-2 text-xs font-bold text-slate-300 transition-colors hover:border-cyan-400 hover:text-white"
               >
-                Arrange Now
+                지금 정렬
               </button>
             </div>
           )}

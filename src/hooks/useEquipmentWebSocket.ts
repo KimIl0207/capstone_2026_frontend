@@ -1,89 +1,121 @@
-import { useEffect } from "react";
-import type { UniversalEquipment } from "../types/equipment";
-import type { SensorData } from "../types/equipment";
+import { useEffect, type Dispatch, type SetStateAction } from "react";
+
+import { subscribeToEquipmentGateway } from "../api/socket";
+import type { SensorData, UniversalEquipment } from "../types/equipment";
+import { getUserId } from "../utils/Auth";
 
 type GatewaySensor = {
-    sensorId: string;
-    dataType: "FLOAT" | "BOOLEAN" | "INTEGER";
-    value: number;
-    unit: string;
+  sensorId?: string | number;
+  sensorName?: string;
+  name?: string;
+  dataType?: "FLOAT" | "DOUBLE" | "BOOLEAN" | "INTEGER" | "INT" | "STRING";
+  value?: unknown;
+  currentValue?: unknown;
+  numericValue?: unknown;
+  unit?: string;
 };
 
 type GatewayPayload = {
-    equipmentId: string;
-    timestamp: string;
-    status: "RUN" | "ERROR";
-    sensors: GatewaySensor[];
+  equipmentId?: string | number;
+  equipmentEntityId?: string | number;
+  equipmentName?: string;
+  timestamp?: string;
+  status?: string;
+  sensors: GatewaySensor[];
 };
 
-function getSensorStatus(payloadStatus: "RUN" | "ERROR"): SensorData["status"] {
-    return payloadStatus === "ERROR" ? "CRITICAL" : "NORMAL";
+function getSensorStatus(payloadStatus?: string): SensorData["status"] {
+  return payloadStatus === "ERROR" ? "CRITICAL" : "NORMAL";
 }
 
-function mapSensorIdToLabel(sensorId: string): string {
-    if (sensorId.startsWith("Temp_Sensor_")) return "Temperature";
-    if (sensorId.startsWith("Power_Status_")) return "Power";
-    if (sensorId.startsWith("Cycle_Count_")) return "Cycle Count";
-    return sensorId; // 기본적으로 sensorId를 라벨로 사용
+function mapSensorIdToLabel(sensorId: string, sensorName?: string): string {
+  if (sensorName) return sensorName;
+  if (sensorId.startsWith("Temp_Sensor_")) return "Temperature";
+  if (sensorId.startsWith("Power_Status_")) return "Power";
+  if (sensorId.startsWith("Cycle_Count_")) return "Cycle Count";
+  return sensorId;
 }
 
-function mapGatewayToDashboard(prev: UniversalEquipment, payload: GatewayPayload): UniversalEquipment {
-    const mappedSensors: SensorData[] = payload.sensors.map((sensor) => ({
-        sensorId: sensor.sensorId,
-        label: mapSensorIdToLabel(sensor.sensorId),
-        value: sensor.value,
-        unit: sensor.unit,
-        status: getSensorStatus(payload.status),
-    }));
+function normalizeSensorValue(value: unknown): number {
+  if (typeof value === "number") return value;
+  if (typeof value === "boolean") return value ? 1 : 0;
+  if (value && typeof value === "object") {
+    const payload = value as Record<string, unknown>;
+    return normalizeSensorValue(payload.value ?? payload.currentValue ?? payload.numericValue ?? payload.data);
+  }
+
+  const numericText = String(value ?? "").replace(/,/g, "").match(/-?\d+(\.\d+)?/)?.[0] ?? "";
+  const numericValue = Number(numericText);
+  return Number.isFinite(numericValue) ? numericValue : 0;
+}
+
+function isGatewayPayload(value: unknown): value is GatewayPayload {
+  if (!value || typeof value !== "object") return false;
+
+  const payload = value as Partial<GatewayPayload>;
+
+  return (
+    Array.isArray(payload.sensors)
+  );
+}
+
+function mapGatewayToDashboard(
+  prev: UniversalEquipment,
+  payload: GatewayPayload,
+): UniversalEquipment {
+  const mappedSensors: SensorData[] = payload.sensors.map((sensor, index) => {
+    const sensorId = String(sensor.sensorId ?? sensor.sensorName ?? sensor.name ?? `sensor-${index}`);
+    const rawValue = sensor.value ?? sensor.currentValue ?? sensor.numericValue;
 
     return {
-        ...prev,
-        id: payload.equipmentId,
-        name: payload.equipmentId,
-        status: payload.status === "RUN" ? "RUNNING" : "IDLE",
-        lastUpdate: payload.timestamp,
-        sensors: mappedSensors,
-        metrics: {
-            ...prev.metrics,
-            // 일단 임시값
-            oee: prev.metrics.oee,
-            availability: prev.metrics.availability,
-            performance: prev.metrics.performance,
-            quality: prev.metrics.quality,
-        },
-    };
+    sensorId,
+    label: mapSensorIdToLabel(sensorId, sensor.sensorName ?? sensor.name),
+    value: normalizeSensorValue(rawValue),
+    unit: sensor.unit ?? "",
+    dataType: sensor.dataType,
+    status: getSensorStatus(payload.status),
+  };
+  });
+
+  const equipmentId = String(payload.equipmentId ?? payload.equipmentEntityId ?? prev.id);
+
+  return {
+    ...prev,
+    id: equipmentId,
+    name: payload.equipmentName ?? equipmentId,
+    status: payload.status === "ERROR" ? "IDLE" : "RUNNING",
+    lastUpdate: payload.timestamp ?? new Date().toISOString(),
+    sensors: mappedSensors,
+    metrics: {
+      ...prev.metrics,
+      oee: prev.metrics.oee,
+      availability: prev.metrics.availability,
+      performance: prev.metrics.performance,
+      quality: prev.metrics.quality,
+    },
+  };
 }
 
 export function useEquipmentWebSocket(
-    setEquipment: React.Dispatch<React.SetStateAction<UniversalEquipment>>
+  setEquipment: Dispatch<SetStateAction<UniversalEquipment>>,
 ) {
-    useEffect(() => {
-        const ws = new WebSocket("ws://localhost:8765");
+  useEffect(() => {
+    const { unsubscribe } = subscribeToEquipmentGateway<GatewayPayload>((message) => {
+      const payload = message.body;
 
-        ws.onopen = () => {
-            console.log("웹소켓 연결 성공");
-        };
+      if (!isGatewayPayload(payload)) {
+        console.error("[Equipment WebSocket] Invalid gateway payload", {
+          body: payload,
+          parseError: message.parseError,
+        });
+        return;
+      }
 
-        ws.onmessage = (event) => {
-            try {
-                const payload: GatewayPayload = JSON.parse(event.data);
-                console.log("웹소켓으로부터 데이터 수신:", payload);
-                setEquipment((prev) => mapGatewayToDashboard(prev, payload));
-            } catch (error) {
-                console.error("웹소켓 데이터 파싱 실패:", error);
-            }
-        };
+      setEquipment((prev) => mapGatewayToDashboard(prev, payload));
+    }, { userId: getUserId() });
 
-        ws.onerror = (error) => {
-            console.error("웹소켓 에러:", error);
-        };
-
-        ws.onclose = () => {
-            console.log("웹소켓 연결 종료");
-        };
-
-        return () => {
-            ws.close();
-        };
-    }, [setEquipment]);
+    return () => {
+      unsubscribe();
+    };
+  }, [setEquipment]);
 }

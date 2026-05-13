@@ -25,7 +25,9 @@ type Props = {
 
 export function WidgetRenderer({ widget, equipment, alerts, trendData }: Props) {
   const key = Array.isArray(widget.dataKey) ? widget.dataKey[0] : widget.dataKey;
-  const targetSensor = equipment.sensors?.find((s) => s.label === key);
+  const targetSensor =
+    equipment.sensors?.find((sensor) => sensor.label === key || sensor.sensorId === key) ??
+    (widget.type === "GAUGE" || widget.type === "STATUS" ? equipment.sensors?.[0] : undefined);
   const val = targetSensor ? targetSensor.value : 0;
   const unit = targetSensor ? targetSensor.unit : "";
 

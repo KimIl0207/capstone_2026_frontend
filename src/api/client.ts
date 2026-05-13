@@ -1,0 +1,268 @@
+import { getAccessToken } from "../utils/Auth";
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://43.201.141.9:8080";
+
+export type ApiResponse<T> = {
+  success: boolean;
+  message?: string;
+  data?: T;
+  statusCode?: number;
+  errorCode?: number;
+  errorDetail?: string;
+  timestamp?: string;
+  path?: string;
+};
+
+type RequestOptions = Omit<RequestInit, "body"> & {
+  body?: unknown;
+  accessToken?: string;
+};
+
+export type LoginRequest = {
+  username: string;
+  password: string;
+};
+
+export type LoginResponse = {
+  accessToken: string;
+  refreshToken: string;
+  tokenType: string;
+  expiresIn: number;
+  userId: number;
+  username: string;
+  role: string;
+};
+
+export type UserInfoResponse = {
+  userId: number;
+  username: string;
+  email?: string;
+  fullName?: string;
+  role: string;
+  isActive?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type DashboardResponse = {
+  dashboardId: number;
+  dashboardName: string;
+  description?: string;
+  userId: number;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type EquipmentResponse = {
+  equipmentId: number;
+  equipmentName: string;
+  field?: string;
+  dashboardId: number;
+};
+
+export type SensorResponse = {
+  sensorId: number;
+  sensorName: string;
+  equipmentId: number;
+};
+
+export type SensorDetails = {
+  sensorId?: string;
+  sensorName?: string;
+  name?: string;
+  dataType?: "FLOAT" | "DOUBLE" | "BOOLEAN" | "INTEGER" | "INT" | "STRING";
+  value?: unknown;
+  currentValue?: unknown;
+  numericValue?: unknown;
+  unit?: string;
+};
+
+export type SensorDataPayload = {
+  equipmentEntityId?: number;
+  equipmentId?: string;
+  timestamp?: string;
+  status?: string;
+  sensors: SensorDetails[];
+};
+
+export type EquipmentCurrentResponse = {
+  equipmentId: number;
+  equipmentName: string;
+  field?: string;
+  dashboardId: number;
+  current?: SensorDataPayload;
+};
+
+export type WidgetResponseDto = {
+  id: number;
+  userId: number;
+  dashboardId?: number;
+  dashboardName?: string;
+  equipmentId?: string;
+  equipmentEntityId?: number;
+  equipmentName?: string;
+  widgetType: string;
+  title: string;
+  sensorId?: string;
+  sensorEntityId?: number;
+  sensorName?: string;
+  chartType?: string;
+  dataType?: string;
+  unit?: string;
+  posX: number;
+  posY: number;
+  width: number;
+  height: number;
+  configJson?: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+function buildHeaders(options: RequestOptions): Headers {
+  const headers = new Headers(options.headers);
+
+  if (!headers.has("Content-Type") && options.body !== undefined) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  const accessToken = options.accessToken ?? getAccessToken();
+
+  if (accessToken && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${accessToken}`);
+  }
+
+  return headers;
+}
+
+async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const { body, accessToken: _accessToken, ...fetchOptions } = options;
+  const url = new URL(path, API_BASE_URL);
+
+  try {
+    const response = await fetch(url, {
+      ...fetchOptions,
+      headers: buildHeaders(options),
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+
+    const contentType = response.headers.get("content-type") ?? "";
+    const payload = contentType.includes("application/json") ? await response.json() : await response.text();
+
+    if (!response.ok) {
+      console.error("[API] Request failed", {
+        url: url.toString(),
+        status: response.status,
+        payload,
+      });
+      const message =
+        payload && typeof payload === "object" && "message" in payload
+          ? String((payload as ApiResponse<unknown>).message)
+          : `API request failed: ${response.status} ${response.statusText}`;
+      throw new Error(message);
+    }
+
+    return payload as T;
+  } catch (error) {
+    console.error("[API] Network or CORS error", {
+      url: url.toString(),
+      error,
+    });
+    throw error;
+  }
+}
+
+export const apiClient = {
+  get: <T>(path: string, options?: RequestOptions) => request<T>(path, { ...options, method: "GET" }),
+  post: <T>(path: string, body?: unknown, options?: RequestOptions) =>
+    request<T>(path, { ...options, method: "POST", body }),
+  put: <T>(path: string, body?: unknown, options?: RequestOptions) =>
+    request<T>(path, { ...options, method: "PUT", body }),
+  delete: <T>(path: string, options?: RequestOptions) => request<T>(path, { ...options, method: "DELETE" }),
+};
+
+export function loginWithPassword(body: LoginRequest) {
+  return apiClient.post<ApiResponse<LoginResponse>>("/api/auth/login", body);
+}
+
+export function refreshAccessToken(refreshToken: string) {
+  return apiClient.post<ApiResponse<LoginResponse>>("/api/auth/refresh", { refreshToken });
+}
+
+export function logoutSession(accessToken?: string) {
+  return apiClient.post<ApiResponse<void>>("/api/auth/logout", undefined, { accessToken });
+}
+
+export function getMe(accessToken?: string) {
+  return apiClient.get<ApiResponse<UserInfoResponse>>("/api/auth/me", { accessToken });
+}
+
+export function getMyDashboards(accessToken?: string) {
+  return apiClient.get<ApiResponse<DashboardResponse[]>>("/api/dashboards", { accessToken });
+}
+
+export function getDashboard(dashboardId: number | string, accessToken?: string) {
+  return apiClient.get<ApiResponse<DashboardResponse>>(`/api/dashboards/${dashboardId}`, { accessToken });
+}
+
+export function getDashboardWidgets(dashboardId: number | string, accessToken?: string) {
+  return apiClient.get<ApiResponse<WidgetResponseDto[]>>(`/api/dashboards/${dashboardId}/widgets`, { accessToken });
+}
+
+export function getMyWidgets(accessToken?: string) {
+  return apiClient.get<ApiResponse<WidgetResponseDto[]>>("/api/dashboard/widgets", { accessToken });
+}
+
+export function getEquipmentWidgets(equipmentId: number | string, accessToken?: string) {
+  return apiClient.get<ApiResponse<WidgetResponseDto[]>>(`/api/equipment/${equipmentId}/widgets`, { accessToken });
+}
+
+export function getDashboardWidgetsByEquipment(equipmentId: number | string, accessToken?: string) {
+  return apiClient.get<ApiResponse<WidgetResponseDto[]>>(`/api/dashboard/widgets/equipment/${equipmentId}`, { accessToken });
+}
+
+export function getDashboardEquipment(dashboardId: number | string, accessToken?: string) {
+  return apiClient.get<ApiResponse<EquipmentResponse[]>>(`/api/equipment/dashboard/${dashboardId}`, { accessToken });
+}
+
+export function searchMyEquipment(keyword = "", accessToken?: string) {
+  const params = new URLSearchParams();
+
+  if (keyword) {
+    params.set("keyword", keyword);
+  }
+
+  const query = params.toString();
+  return apiClient.get<ApiResponse<EquipmentResponse[]>>(`/api/equipment/search${query ? `?${query}` : ""}`, {
+    accessToken,
+  });
+}
+
+export function getEquipment(equipmentId: number | string, accessToken?: string) {
+  return apiClient.get<ApiResponse<EquipmentResponse>>(`/api/equipment/${equipmentId}`, { accessToken });
+}
+
+export function getEquipmentSensors(equipmentId: number | string, accessToken?: string) {
+  return apiClient.get<ApiResponse<SensorResponse[]>>(`/api/sensors/equipment/${equipmentId}`, { accessToken });
+}
+
+export function searchEquipmentSensors(equipmentId: number | string, keyword = "", accessToken?: string) {
+  const params = new URLSearchParams();
+
+  if (keyword) {
+    params.set("keyword", keyword);
+  }
+
+  const query = params.toString();
+  return apiClient.get<ApiResponse<SensorResponse[]>>(
+    `/api/sensors/equipment/${equipmentId}/search${query ? `?${query}` : ""}`,
+    { accessToken },
+  );
+}
+
+export function getMyEquipmentCurrent(accessToken?: string) {
+  return apiClient.get<ApiResponse<EquipmentCurrentResponse[]>>("/api/equipment/current", { accessToken });
+}
+
+export function getEquipmentCurrent(equipmentId: number | string, accessToken?: string) {
+  return apiClient.get<ApiResponse<EquipmentCurrentResponse>>(`/api/equipment/${equipmentId}/current`, { accessToken });
+}
