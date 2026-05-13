@@ -30,11 +30,13 @@ export interface DashboardItem {
   pinned?: boolean;
 }
 
+export type SensorMetaDataType = 'FLOAT' | 'DOUBLE' | 'BOOLEAN' | 'INTEGER' | 'INT' | 'STRING';
+
 export interface SensorMeta {
   id: string;
   label: string;
   unit: string;
-  dataType?: 'FLOAT' | 'BOOLEAN' | 'INTEGER';
+  dataType?: SensorMetaDataType;
 }
 
 export interface EquipmentMaster {

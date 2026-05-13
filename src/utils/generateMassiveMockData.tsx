@@ -1,4 +1,4 @@
-import type { EquipmentMaster } from "../../types/equipment";
+import type { EquipmentMaster } from "../types/equipment";
 
 export const generateMassiveMockData = () => {
   const massiveData: EquipmentMaster[] = [];

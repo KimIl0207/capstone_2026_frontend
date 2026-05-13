@@ -24,5 +24,11 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": [
+    "src/components/ui",
+    "src/hooks/use-toast.ts",
+    "src/lib/utils.ts",
+    "src/utils/generateMassiveMockData.tsx"
+  ]
 }

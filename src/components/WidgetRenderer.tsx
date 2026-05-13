@@ -77,7 +77,7 @@ export function WidgetRenderer({ widget, equipment, alerts, trendData }: Props) 
       );
 
     case "LOG":
-      return <LogContent type="LOG" />;
+      return <LogContent />;
 
     case "BAR_V":
       return <BarChartWidget direction="vertical" dataKeys={widget.dataKey} />;

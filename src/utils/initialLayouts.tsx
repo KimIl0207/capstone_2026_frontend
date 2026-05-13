@@ -1,4 +1,4 @@
-import type { DashboardItem } from "../../types/dashboard";
+import type { DashboardItem } from "../types/dashboard";
 
 export const initialLayouts: Record<string, DashboardItem[]> = {
   lg: [

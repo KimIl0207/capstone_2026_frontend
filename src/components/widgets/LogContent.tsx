@@ -1,5 +1,4 @@
-export function LogContent({ type }: { type: 'ALERTS' | 'LOG' }) {
-  // 샘플 로그 데이터 (나중에 실제 데이터로 연결)
+export function LogContent() {
   const logs = [
     { id: 1, time: "14:32:01", msg: "Chamber A Temperature High", level: "ERROR" },
     { id: 2, time: "14:30:45", msg: "Vacuum Pump Started", level: "INFO" },
@@ -7,14 +6,14 @@ export function LogContent({ type }: { type: 'ALERTS' | 'LOG' }) {
   ];
 
   return (
-    <div className="flex flex-col gap-2 h-full overflow-y-auto pr-2 custom-scrollbar text-[11px]">
-      {logs.map(log => (
-        <div key={log.id} className="flex gap-3 p-2 bg-slate-900/50 border-l-2 border-indigo-500 rounded-r-lg">
-          <span className="text-slate-500 font-mono shrink-0">{log.time}</span>
-          <span className={`font-bold shrink-0 ${log.level === 'ERROR' ? 'text-rose-400' : 'text-emerald-400'}`}>
+    <div className="flex h-full flex-col gap-2 overflow-y-auto pr-2 text-[11px] custom-scrollbar">
+      {logs.map((log) => (
+        <div key={log.id} className="flex gap-3 rounded-r-lg border-l-2 border-indigo-500 bg-slate-900/50 p-2">
+          <span className="shrink-0 font-mono text-slate-500">{log.time}</span>
+          <span className={`shrink-0 font-bold ${log.level === "ERROR" ? "text-rose-400" : "text-emerald-400"}`}>
             [{log.level}]
           </span>
-          <span className="text-slate-300 truncate">{log.msg}</span>
+          <span className="truncate text-slate-300">{log.msg}</span>
         </div>
       ))}
     </div>

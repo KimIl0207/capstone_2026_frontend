@@ -1,6 +1,6 @@
 ﻿import { useCallback, useEffect, useState, useRef, type Dispatch, type SetStateAction } from "react";
 import { getEquipmentCurrent, getMyEquipmentCurrent, searchEquipmentSensors, searchMyEquipment } from "../api/client";
-import type { EquipmentCurrentResponse, EquipmentResponse, SensorDetails, SensorResponse } from "../api/client";
+import type { EquipmentCurrentResponse, EquipmentResponse, SensorResponse } from "../api/client";
 import type { UniversalEquipment } from "../types/equipment";
 import type {
   DashboardItem,
@@ -172,7 +172,7 @@ const mapCurrentResponseToEquipment = (
       value: normalizeSensorValue(rawValue),
       unit: sensor.unit ?? "",
       dataType: sensor.dataType,
-      status: response.current?.status === "ERROR" ? "CRITICAL" : "NORMAL",
+      status: response.current?.status === "ERROR" ? "CRITICAL" as const : "NORMAL" as const,
     };
   });
 
