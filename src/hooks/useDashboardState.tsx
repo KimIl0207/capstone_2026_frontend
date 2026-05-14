@@ -1,5 +1,6 @@
 ﻿import { useCallback, useEffect, useState, useRef, type Dispatch, type SetStateAction } from "react";
 import { getEquipmentCurrent, getMyEquipmentCurrent, searchEquipmentSensors, searchMyEquipment } from "../api/client";
+import { getUserId } from "../utils/Auth";
 import type { EquipmentCurrentResponse, EquipmentResponse, SensorResponse } from "../api/client";
 import type { UniversalEquipment } from "../types/equipment";
 import type {
@@ -12,6 +13,7 @@ import type {
 import type { Layout, ResponsiveLayouts } from "react-grid-layout";
 
 const DASHBOARD_LAYOUT_STORAGE_KEY = "myFoundryDashboard";
+const getDashboardLayoutStorageKey = (userId: string | number) => `${DASHBOARD_LAYOUT_STORAGE_KEY}:${userId}`;
 export type DashboardBreakpoint = "lg" | "md" | "sm";
 export type DashboardLayouts = Partial<Record<DashboardBreakpoint, DashboardItem[]>>;
 
@@ -199,6 +201,7 @@ export function useDashboardState({
   initialLayouts,
   alertsData,
 }: UseDashboardStateParams) {
+  const [dashboardLayoutStorageKey] = useState(() => getDashboardLayoutStorageKey(getUserId()));
   const [allEquipments, setAllEquipments] = useState<EquipmentMaster[]>([]);
 
   const [isEqModalOpen, setIsEqModalOpen] = useState(false);
@@ -208,7 +211,7 @@ export function useDashboardState({
 
   const [responsiveLayouts, setResponsiveLayouts] = useState<DashboardLayouts>(() => {
     try {
-      const savedLayout = localStorage.getItem(DASHBOARD_LAYOUT_STORAGE_KEY);
+      const savedLayout = localStorage.getItem(dashboardLayoutStorageKey);
       if (!savedLayout) return { lg: initialLayouts.lg ?? [] };
 
       const parsed = JSON.parse(savedLayout);
@@ -306,9 +309,9 @@ export function useDashboardState({
 
   useEffect(() => {
     if (layouts.length > 0) {
-      localStorage.setItem(DASHBOARD_LAYOUT_STORAGE_KEY, JSON.stringify(responsiveLayouts));
+      localStorage.setItem(dashboardLayoutStorageKey, JSON.stringify(responsiveLayouts));
     }
-  }, [layouts.length, responsiveLayouts]);
+  }, [dashboardLayoutStorageKey, layouts.length, responsiveLayouts]);
 
   const compactWidgets = (items: DashboardItem[], cols = 12) => {
     const pinned = items.filter(item => item.pinned);
