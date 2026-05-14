@@ -51,6 +51,8 @@ export interface SelectedData {
   eqId: string;
   eqName: string;
   sensorId: string;
+  sensorLabel?: string;
+  sensorKey?: string;
   dataType?: SensorMeta['dataType'];
 }
 

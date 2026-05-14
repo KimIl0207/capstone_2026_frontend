@@ -135,6 +135,8 @@ const mapSensorResponseToMeta = (sensor: SensorResponse) => ({
   unit: "",
 });
 
+const buildSensorDataKey = (equipmentId: string, sensorId: string) => `${equipmentId}::${sensorId}`;
+
 const normalizeSensorValue = (value: unknown): number => {
   if (typeof value === "number") return value;
   if (typeof value === "boolean") return value ? 1 : 0;
@@ -461,7 +463,8 @@ export function useDashboardState({
 
     const equipment = allEquipments.find((e) => e.id === tempSelection.eqId);
     const eqName = equipment?.name || "";
-    const sensor = equipment?.sensors.find((item) => item.label === tempSelection.sensorId);
+    const sensor = equipment?.sensors.find((item) => item.id === tempSelection.sensorId);
+    const sensorKey = buildSensorDataKey(tempSelection.eqId, tempSelection.sensorId);
 
     const isExist = selectedDataCart.some(
       (item) =>
@@ -475,7 +478,13 @@ export function useDashboardState({
 
     setSelectedDataCart((prev) => [
       ...prev,
-      { ...tempSelection, eqName, dataType: sensor?.dataType },
+      {
+        ...tempSelection,
+        eqName,
+        sensorLabel: sensor?.label ?? tempSelection.sensorId,
+        sensorKey,
+        dataType: sensor?.dataType,
+      },
     ]);
   };
 
@@ -508,8 +517,8 @@ export function useDashboardState({
     const newId = `widget-${Date.now()}`;
     const keysToSave =
       selectedDataCart.length > 1
-        ? selectedDataCart.map((item) => item.sensorId)
-        : selectedDataCart[0].sensorId;
+        ? selectedDataCart.map((item) => item.sensorKey ?? buildSensorDataKey(item.eqId, item.sensorId))
+        : selectedDataCart[0].sensorKey ?? buildSensorDataKey(selectedDataCart[0].eqId, selectedDataCart[0].sensorId);
 
     const newItem: DashboardItem = {
       i: newId,
@@ -518,7 +527,7 @@ export function useDashboardState({
       title:
         selectedDataCart.length > 1
           ? `다중 비교 (${selectedDataCart.length}개)`
-          : `${selectedDataCart[0].sensorId} ${newWidgetConfig.type}`,
+          : `${selectedDataCart[0].eqName} - ${selectedDataCart[0].sensorLabel ?? selectedDataCart[0].sensorId}`,
       color: "bg-indigo-500",
       x: (layouts.length * 4) % 12,
       y: Infinity,

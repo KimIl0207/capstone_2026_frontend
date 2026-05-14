@@ -8,12 +8,22 @@ import { StatusWidget } from "./widgets/StatusWidget";
 import { LogContent } from "./widgets/LogContent";
 import { BarChartWidget } from "./widgets/BarChartWidget";
 
-import type { UniversalEquipment } from "../types/equipment";
+import type { SensorData, UniversalEquipment } from "../types/equipment";
 import type { AlertItem, DashboardItem } from "../types/dashboard";
 
 type TrendPoint = {
   t: string;
   [key: string]: string | number;
+};
+
+type SelectedSensor = {
+  key: string;
+  equipmentId?: string;
+  sensorId: string;
+  label: string;
+  value: number;
+  unit: string;
+  status: SensorData["status"];
 };
 
 type Props = {
@@ -23,13 +33,49 @@ type Props = {
   trendData: TrendPoint[];
 };
 
+function parseDataKey(dataKey: string) {
+  const [equipmentId, sensorId] = dataKey.includes("::") ? dataKey.split("::") : ["", dataKey];
+  return { equipmentId, sensorId };
+}
+
+function resolveSensor(dataKey: string, equipment: UniversalEquipment): SelectedSensor | undefined {
+  const { equipmentId, sensorId } = parseDataKey(dataKey);
+
+  if (equipmentId && equipment.id !== equipmentId) {
+    return undefined;
+  }
+
+  const sensor = equipment.sensors.find(
+    (item) => item.sensorId === sensorId || item.label === sensorId,
+  );
+
+  if (!sensor) return undefined;
+
+  return {
+    key: dataKey,
+    equipmentId: equipmentId || equipment.id,
+    sensorId: sensor.sensorId ?? sensor.label,
+    label: `${equipment.name} - ${sensor.label}`,
+    value: sensor.value,
+    unit: sensor.unit,
+    status: sensor.status,
+  };
+}
+
+function resolveSensors(dataKey: string | string[], equipment: UniversalEquipment) {
+  const keys = Array.isArray(dataKey) ? dataKey : [dataKey];
+  return keys
+    .map((key) => resolveSensor(key, equipment))
+    .filter((sensor): sensor is SelectedSensor => Boolean(sensor));
+}
+
 export function WidgetRenderer({ widget, equipment, alerts, trendData }: Props) {
-  const key = Array.isArray(widget.dataKey) ? widget.dataKey[0] : widget.dataKey;
-  const targetSensor =
-    equipment.sensors?.find((sensor) => sensor.label === key || sensor.sensorId === key) ??
-    (widget.type === "GAUGE" || widget.type === "STATUS" ? equipment.sensors?.[0] : undefined);
-  const val = targetSensor ? targetSensor.value : 0;
-  const unit = targetSensor ? targetSensor.unit : "";
+  const selectedSensors = resolveSensors(widget.dataKey, equipment);
+  const targetSensor = selectedSensors[0];
+  const fallbackSensor = equipment.sensors[0];
+  const val = targetSensor?.value ?? fallbackSensor?.value ?? 0;
+  const unit = targetSensor?.unit ?? fallbackSensor?.unit ?? "";
+  const label = targetSensor?.label ?? widget.title;
 
   switch (widget.type) {
     case "OEE":
@@ -39,7 +85,7 @@ export function WidgetRenderer({ widget, equipment, alerts, trendData }: Props) 
       return <SensorGridContent sensors={equipment.sensors} />;
 
     case "TREND":
-      return <TrendChartContent dataKeys={widget.dataKey} data={trendData} />;
+      return <TrendChartContent sensors={selectedSensors} fallbackData={trendData} />;
 
     case "ALERTS":
       return <AlertsContent alerts={alerts} />;
@@ -49,7 +95,7 @@ export function WidgetRenderer({ widget, equipment, alerts, trendData }: Props) 
         <GaugeChartWidget
           value={val}
           unit={unit}
-          label={String(key)}
+          label={label}
           min={0}
           max={1200}
         />
@@ -60,9 +106,9 @@ export function WidgetRenderer({ widget, equipment, alerts, trendData }: Props) 
         <DonutChartWidget
           title={widget.title}
           data={[
-            { name: "Running", value: 75, color: "#10b981" },
-            { name: "Idle", value: 15, color: "#f59e0b" },
-            { name: "Down", value: 10, color: "#ef4444" },
+            { name: "Normal", value: equipment.sensors.filter((sensor) => sensor.status === "NORMAL").length, color: "#10b981" },
+            { name: "Caution", value: equipment.sensors.filter((sensor) => sensor.status === "CAUTION").length, color: "#f59e0b" },
+            { name: "Critical", value: equipment.sensors.filter((sensor) => sensor.status === "CRITICAL").length, color: "#ef4444" },
           ]}
         />
       );
@@ -70,9 +116,9 @@ export function WidgetRenderer({ widget, equipment, alerts, trendData }: Props) 
     case "STATUS":
       return (
         <StatusWidget
-          status={key === "POWER" ? "RUNNING" : "ALARM"}
-          label={widget.title}
-          subText={key === "POWER" ? "Stable 220V" : "Pressure Drop"}
+          status={targetSensor?.status === "CRITICAL" ? "ALARM" : targetSensor?.status === "CAUTION" ? "CAUTION" : "RUNNING"}
+          label={label}
+          subText={targetSensor ? `${targetSensor.value}${targetSensor.unit}` : "No data"}
         />
       );
 
@@ -80,10 +126,10 @@ export function WidgetRenderer({ widget, equipment, alerts, trendData }: Props) 
       return <LogContent />;
 
     case "BAR_V":
-      return <BarChartWidget direction="vertical" dataKeys={widget.dataKey} />;
+      return <BarChartWidget direction="vertical" sensors={selectedSensors} />;
 
     case "BAR_H":
-      return <BarChartWidget direction="horizontal" dataKeys={widget.dataKey} />;
+      return <BarChartWidget direction="horizontal" sensors={selectedSensors} />;
 
     default:
       return null;

@@ -189,11 +189,11 @@ function WidgetBuilderModal({ state }: DashboardModalsProps) {
                             type="button"
                             key={sensor.id}
                             onClick={() =>
-                              setTempSelection({ ...tempSelection, sensorId: sensor.label })
+                              setTempSelection({ ...tempSelection, sensorId: sensor.id })
                             }
                             className={[
                               "flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-sm transition-colors",
-                              tempSelection.sensorId === sensor.label
+                              tempSelection.sensorId === sensor.id
                                 ? "bg-cyan-600 text-white"
                                 : "text-slate-300 hover:bg-slate-700",
                             ].join(" ")}
@@ -235,7 +235,7 @@ function WidgetBuilderModal({ state }: DashboardModalsProps) {
                     >
                       <div className="min-w-0">
                         <div className="truncate text-xs text-slate-400">{item.eqName}</div>
-                        <div className="truncate text-sm font-bold text-white">{item.sensorId}</div>
+                        <div className="truncate text-sm font-bold text-white">{item.sensorLabel ?? item.sensorId}</div>
                         <div className="mt-1 text-[10px] font-bold uppercase text-slate-500">
                           {item.dataType ?? "FLOAT"}
                         </div>
@@ -264,7 +264,7 @@ function WidgetBuilderModal({ state }: DashboardModalsProps) {
                   key={`${item.eqId}-${item.sensorId}`}
                   className="rounded-md border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-xs text-cyan-200"
                 >
-                  {item.eqName} - {item.sensorId}
+                  {item.eqName} - {item.sensorLabel ?? item.sensorId}
                 </span>
               ))}
             </div>
