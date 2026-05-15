@@ -2,12 +2,15 @@
 import {
   createDashboardWidget,
   deleteDashboardWidget,
+  getDashboardWidgets,
   getEquipmentCurrent,
+  getMyDashboards,
   getMyEquipmentCurrent,
   searchEquipmentSensors,
   searchMyEquipment,
   updateWidgetLayouts,
   type WidgetRequestDto,
+  type WidgetResponseDto,
 } from "../api/client";
 import { getUserId } from "../utils/Auth";
 import type { EquipmentCurrentResponse, EquipmentResponse, SensorResponse } from "../api/client";
@@ -106,37 +109,110 @@ const getServerWidgetId = (widget: DashboardItem) => {
   return Number.isInteger(numericId) && numericId > 0 ? numericId : null;
 };
 
-const toWidgetRequest = (widget: DashboardItem): WidgetRequestDto => ({
-  widgetType: widget.type,
-  title: widget.title,
-  posX: widget.x,
-  posY: Number.isFinite(widget.y) ? widget.y : 0,
-  width: widget.w,
-  height: widget.h,
-  configJson: JSON.stringify({
-    dataKey: widget.dataKey,
-    color: widget.color,
-    pinned: widget.pinned ?? false,
-  }),
-});
+const isDashboardWidgetType = (value: string): value is DashboardWidgetType => {
+  return [
+    "OEE",
+    "SENSORS",
+    "TREND",
+    "ALERTS",
+    "GAUGE",
+    "DONUT",
+    "STATUS",
+    "LOG",
+    "BAR_V",
+    "BAR_H",
+  ].includes(value);
+};
 
-const attachServerWidgetIds = (
-  layouts: DashboardLayouts,
-  serverWidgetIds: Map<string, number>,
-): DashboardLayouts => {
-  const next: DashboardLayouts = {};
+const parseWidgetConfig = (configJson?: string) => {
+  if (!configJson) return {};
 
-  DASHBOARD_BREAKPOINT_KEYS.forEach((breakpoint) => {
-    const items = layouts[breakpoint];
-    if (!items) return;
+  try {
+    const parsed = JSON.parse(configJson);
+    return parsed && typeof parsed === "object" ? parsed as Record<string, unknown> : {};
+  } catch {
+    return {};
+  }
+};
 
-    next[breakpoint] = items.map((widget) => {
-      const serverWidgetId = serverWidgetIds.get(widget.i);
-      return serverWidgetId ? { ...widget, serverWidgetId } : widget;
-    });
-  });
+const mapWidgetResponseToDashboardItem = (widget: WidgetResponseDto): DashboardItem => {
+  const config = parseWidgetConfig(widget.configJson);
+  const type = isDashboardWidgetType(widget.widgetType) ? widget.widgetType : "GAUGE";
+  const configDataKey = config.dataKey;
+  const dataKey =
+    Array.isArray(configDataKey)
+      ? configDataKey.map(String)
+      : typeof configDataKey === "string"
+        ? configDataKey
+        : widget.sensorId ?? widget.sensorName ?? widget.widgetType;
 
-  return { ...layouts, ...next };
+  return {
+    i: String(widget.id),
+    serverWidgetId: widget.id,
+    type,
+    title: widget.title,
+    dataKey,
+    color: typeof config.color === "string" ? config.color : "bg-indigo-500",
+    pinned: typeof config.pinned === "boolean" ? config.pinned : false,
+    static: typeof config.pinned === "boolean" ? config.pinned : false,
+    x: widget.posX,
+    y: widget.posY,
+    w: widget.width,
+    h: widget.height,
+  };
+};
+
+const toNumberId = (value: string) => {
+  const numericId = Number(value);
+  return Number.isInteger(numericId) && numericId > 0 ? numericId : undefined;
+};
+
+const getChartType = (type: DashboardWidgetType) => {
+  switch (type) {
+    case "TREND":
+      return "line";
+    case "BAR_V":
+    case "BAR_H":
+      return "bar";
+    case "DONUT":
+      return "donut";
+    case "GAUGE":
+      return "gauge";
+    default:
+      return type.toLowerCase();
+  }
+};
+
+const buildWidgetCreateRequest = (
+  dashboardId: number,
+  item: DashboardItem,
+  selectedData: SelectedData[],
+): WidgetRequestDto => {
+  const primaryData = selectedData[0];
+  const equipmentEntityId = primaryData ? toNumberId(primaryData.eqId) : undefined;
+  const sensorEntityId = primaryData ? toNumberId(primaryData.sensorId) : undefined;
+
+  return {
+    dashboardId,
+    equipmentId: primaryData?.eqId,
+    equipmentEntityId,
+    widgetType: item.type,
+    title: item.title,
+    sensorId: primaryData?.sensorId,
+    sensorEntityId,
+    chartType: getChartType(item.type),
+    dataType: primaryData?.dataType,
+    posX: item.x,
+    posY: Number.isFinite(item.y) ? item.y : 0,
+    width: item.w,
+    height: item.h,
+    configJson: JSON.stringify({
+      dataKey: item.dataKey,
+      color: item.color,
+      pinned: item.pinned ?? false,
+      selectedData,
+    }),
+  };
 };
 
 const mergeLayoutMetadata = (
@@ -258,6 +334,8 @@ export function useDashboardState({
   const [equipment, setEquipmentState] = useState<UniversalEquipment>(mockData);
   const [alerts] = useState(alertsData);
   const [time, setTime] = useState(new Date());
+  const [dashboardId, setDashboardId] = useState<number | null>(null);
+  const [isLoadingDashboardWidgets, setIsLoadingDashboardWidgets] = useState(false);
 
   const [responsiveLayouts, setResponsiveLayouts] = useState<DashboardLayouts>(() => {
     try {
@@ -346,11 +424,48 @@ export function useDashboardState({
     }
   }, [applyCurrentEquipment]);
 
+  const loadDashboardWidgets = useCallback(async () => {
+    setIsLoadingDashboardWidgets(true);
+    setDashboardSaveError(null);
+
+    try {
+      const dashboardsResponse = await getMyDashboards();
+      const dashboard = dashboardsResponse.data?.[0];
+
+      if (!dashboard) {
+        return;
+      }
+
+      setDashboardId(dashboard.dashboardId);
+
+      const widgetsResponse = await getDashboardWidgets(dashboard.dashboardId);
+      const widgets = widgetsResponse.data ?? [];
+
+      if (widgets.length === 0) {
+        return;
+      }
+
+      const serverLayout = widgets.map(mapWidgetResponseToDashboardItem);
+      setResponsiveLayouts({ lg: serverLayout });
+      setIsDashboardDirty(false);
+      pendingDeletedWidgetIds.current.clear();
+    } catch (error) {
+      console.error("[Dashboard Load] Failed to load dashboard widgets", error);
+      setDashboardSaveError(error instanceof Error ? error.message : "대시보드 위젯을 불러오지 못했습니다.");
+    } finally {
+      setIsLoadingDashboardWidgets(false);
+    }
+  }, []);
+
   // 헤더 시계를 최신 상태로 유지
   useEffect(() => {
     const timer = window.setInterval(() => setTime(new Date()), 1000);
     return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    void loadDashboardWidgets();
+  }, [loadDashboardWidgets]);
 
   useEffect(() => {
     void loadInitialEquipmentCurrent();
@@ -379,29 +494,7 @@ export function useDashboardState({
         await deleteDashboardWidget(widgetId);
       }
 
-      let layoutsForSave = getBaseLayout(responsiveLayouts, initialLayouts);
-      const createdWidgetIds = new Map<string, number>();
-
-      for (const widget of layoutsForSave) {
-        if (getServerWidgetId(widget)) continue;
-
-        const response = await createDashboardWidget(toWidgetRequest(widget));
-        const serverWidgetId = response.data?.id;
-
-        if (!serverWidgetId) {
-          throw new Error(`위젯 "${widget.title}" 생성 응답에 ID가 없습니다.`);
-        }
-
-        createdWidgetIds.set(widget.i, serverWidgetId);
-      }
-
-      if (createdWidgetIds.size > 0) {
-        setResponsiveLayouts((prev) => attachServerWidgetIds(prev, createdWidgetIds));
-        layoutsForSave = layoutsForSave.map((widget) => {
-          const serverWidgetId = createdWidgetIds.get(widget.i);
-          return serverWidgetId ? { ...widget, serverWidgetId } : widget;
-        });
-      }
+      const layoutsForSave = getBaseLayout(responsiveLayouts, initialLayouts);
 
       const layoutItems = layoutsForSave
         .map((widget) => {
@@ -418,6 +511,12 @@ export function useDashboardState({
           };
         })
         .filter((item): item is NonNullable<typeof item> => item !== null);
+
+      console.info("[Dashboard Save] Saving widget layouts", {
+        layoutCount: layoutItems.length,
+        skippedLocalWidgetCount: layoutsForSave.length - layoutItems.length,
+        deletedWidgetCount: deletedWidgetIds.length,
+      });
 
       if (layoutItems.length === 0) {
         deletedWidgetIds.forEach((widgetId) => pendingDeletedWidgetIds.current.delete(widgetId));
@@ -662,8 +761,12 @@ export function useDashboardState({
     setBuilderStep(2);
   };
 
-  const addWidgetToDashboard = () => {
+  const addWidgetToDashboard = async () => {
     if (selectedDataCart.length === 0) return;
+    if (!dashboardId) {
+      setDashboardSaveError("대시보드를 불러온 뒤 위젯을 추가할 수 있습니다.");
+      return;
+    }
 
     const newId = `widget-${Date.now()}`;
     const keysToSave =
@@ -686,8 +789,30 @@ export function useDashboardState({
       h: 2,
     };
 
-    updateLayouts((items) => [...items, newItem]);
-    resetWidgetBuilder();
+    setIsSavingDashboard(true);
+    setDashboardSaveError(null);
+
+    try {
+      const response = await createDashboardWidget(
+        dashboardId,
+        buildWidgetCreateRequest(dashboardId, newItem, selectedDataCart),
+      );
+
+      if (!response.data) {
+        throw new Error("위젯 생성 응답이 비어 있습니다.");
+      }
+
+      const createdItem = mapWidgetResponseToDashboardItem(response.data);
+      updateLayouts((items) => [...items, createdItem]);
+      setLastDashboardSavedAt(new Date());
+      setIsDashboardDirty(false);
+      resetWidgetBuilder();
+    } catch (error) {
+      console.error("[Dashboard Widget] Failed to create widget", error);
+      setDashboardSaveError(error instanceof Error ? error.message : "위젯 생성에 실패했습니다.");
+    } finally {
+      setIsSavingDashboard(false);
+    }
   };
 
   const loadEquipmentSensors = useCallback(async (equipmentId: string | number, keyword = "", force = false) => {
@@ -793,6 +918,7 @@ export function useDashboardState({
     alerts,
     autoArrange,
     time,
+    dashboardId,
     equipment,
     layouts,
     responsiveLayouts,
@@ -802,6 +928,7 @@ export function useDashboardState({
     isNetworkScanning,
     isDashboardDirty,
     isSavingDashboard,
+    isLoadingDashboardWidgets,
     loadingSensorEquipmentId,
     lastDashboardSavedAt,
     dashboardSaveError,

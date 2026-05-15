@@ -186,7 +186,10 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
       });
       const message =
         payload && typeof payload === "object" && "message" in payload
-          ? String((payload as ApiResponse<unknown>).message)
+          ? [
+            (payload as ApiResponse<unknown>).message,
+            (payload as ApiResponse<unknown>).errorDetail,
+          ].filter(Boolean).join(": ")
           : `API request failed: ${response.status} ${response.statusText}`;
       throw new Error(message);
     }
@@ -250,12 +253,8 @@ export function getDashboardWidgetsByEquipment(equipmentId: number | string, acc
   return apiClient.get<ApiResponse<WidgetResponseDto[]>>(`/api/dashboard/widgets/equipment/${equipmentId}`, { accessToken });
 }
 
-export function createDashboardWidget(body: WidgetRequestDto, accessToken?: string) {
-  return apiClient.post<ApiResponse<WidgetResponseDto>>("/api/dashboard/widgets", body, { accessToken });
-}
-
-export function updateDashboardWidget(widgetId: number | string, body: WidgetRequestDto, accessToken?: string) {
-  return apiClient.put<ApiResponse<WidgetResponseDto>>(`/api/dashboard/widgets/${widgetId}`, body, { accessToken });
+export function createDashboardWidget(dashboardId: number | string, body: WidgetRequestDto, accessToken?: string) {
+  return apiClient.post<ApiResponse<WidgetResponseDto>>(`/api/dashboards/${dashboardId}/widgets`, body, { accessToken });
 }
 
 export function deleteDashboardWidget(widgetId: number | string, accessToken?: string) {
