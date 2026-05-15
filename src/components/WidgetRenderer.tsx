@@ -16,8 +16,9 @@ type SelectedSensor = {
   equipmentId?: string;
   sensorId: string;
   label: string;
-  value: number;
+  value: number | string;
   unit: string;
+  dataType?: SensorData["dataType"];
   status: SensorData["status"];
 };
 
@@ -92,8 +93,13 @@ function resolveSensor(
     label: `${equipment.name} - ${sensor.label}`,
     value: sensor.value,
     unit: sensor.unit,
+    dataType: sensor.dataType,
     status: sensor.status,
   };
+}
+
+function isNumericSensor(sensor: SelectedSensor) {
+  return typeof sensor.value === "number" && Number.isFinite(sensor.value);
 }
 
 function resolveSensorsForWidget(
@@ -121,8 +127,10 @@ function getPrimaryEquipment(widget: DashboardItem, fallback: UniversalEquipment
 export function WidgetRenderer({ widget, equipment, equipmentById, alerts }: Props) {
   const widgetEquipment = getPrimaryEquipment(widget, equipment, equipmentById);
   const selectedSensors = resolveSensorsForWidget(widget, widgetEquipment, equipmentById);
+  const numericSensors = selectedSensors.filter(isNumericSensor) as Array<SelectedSensor & { value: number }>;
   const targetSensor = selectedSensors[0];
-  const val = targetSensor?.value ?? 0;
+  const targetNumericSensor = numericSensors[0];
+  const val = targetNumericSensor?.value ?? 0;
   const unit = targetSensor?.unit ?? "";
   const label = targetSensor?.label ?? widget.title;
 
@@ -137,13 +145,13 @@ export function WidgetRenderer({ widget, equipment, equipmentById, alerts }: Pro
       return <SensorGridContent sensors={widgetEquipment.sensors} />;
 
     case "TREND":
-      return <TrendChartContent sensors={selectedSensors} />;
+      return <TrendChartContent sensors={numericSensors} />;
 
     case "ALERTS":
       return <AlertsContent alerts={alerts} />;
 
     case "GAUGE":
-      if (!targetSensor) return <EmptyWidgetState />;
+      if (!targetNumericSensor) return <EmptyWidgetState />;
       return (
         <GaugeChartWidget
           value={val}
@@ -174,20 +182,20 @@ export function WidgetRenderer({ widget, equipment, equipmentById, alerts }: Pro
         <StatusWidget
           status={targetSensor?.status === "CRITICAL" ? "ALARM" : targetSensor?.status === "CAUTION" ? "CAUTION" : "RUNNING"}
           label={label}
-          subText={targetSensor ? `${targetSensor.value}${targetSensor.unit}` : "No data"}
+          subText={targetSensor ? `${String(targetSensor.value)}${targetSensor.unit}` : "No data"}
         />
       );
 
     case "LOG":
-      return <LogContent />;
+      return <LogContent sensors={selectedSensors} />;
 
     case "BAR_V":
-      if (selectedSensors.length === 0) return <EmptyWidgetState />;
-      return <BarChartWidget direction="vertical" sensors={selectedSensors} />;
+      if (numericSensors.length === 0) return <EmptyWidgetState />;
+      return <BarChartWidget direction="vertical" sensors={numericSensors} />;
 
     case "BAR_H":
-      if (selectedSensors.length === 0) return <EmptyWidgetState />;
-      return <BarChartWidget direction="horizontal" sensors={selectedSensors} />;
+      if (numericSensors.length === 0) return <EmptyWidgetState />;
+      return <BarChartWidget direction="horizontal" sensors={numericSensors} />;
 
     default:
       return null;

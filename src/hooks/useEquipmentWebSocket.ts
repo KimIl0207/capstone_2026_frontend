@@ -38,17 +38,18 @@ function mapSensorIdToLabel(sensorId: string, sensorName?: string): string {
   return sensorId;
 }
 
-function normalizeSensorValue(value: unknown): number {
+function normalizeSensorValue(value: unknown, dataType?: string): number | string {
+  if (dataType === "STRING") return String(value ?? "");
   if (typeof value === "number") return value;
   if (typeof value === "boolean") return value ? 1 : 0;
   if (value && typeof value === "object") {
     const payload = value as Record<string, unknown>;
-    return normalizeSensorValue(payload.value ?? payload.currentValue ?? payload.numericValue ?? payload.data);
+    return normalizeSensorValue(payload.value ?? payload.currentValue ?? payload.numericValue ?? payload.data, dataType);
   }
 
   const numericText = String(value ?? "").replace(/,/g, "").match(/-?\d+(\.\d+)?/)?.[0] ?? "";
   const numericValue = Number(numericText);
-  return Number.isFinite(numericValue) ? numericValue : 0;
+  return Number.isFinite(numericValue) ? numericValue : String(value ?? "");
 }
 
 function getSensorMergeKey(sensor: SensorData) {
@@ -125,7 +126,7 @@ function mapGatewayToDashboard(
     return {
     sensorId,
     label: mapSensorIdToLabel(sensorId, sensor.sensorName ?? sensor.name),
-    value: normalizeSensorValue(rawValue),
+    value: normalizeSensorValue(rawValue, sensor.dataType),
     unit: sensor.unit ?? "",
     dataType: sensor.dataType,
     status: getSensorStatus(payload.status),

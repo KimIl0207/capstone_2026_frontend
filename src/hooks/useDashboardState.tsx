@@ -256,7 +256,8 @@ const mapAppliedEquipmentToMaster = (item: AppliedEquipment): EquipmentMaster =>
 
 const buildSensorDataKey = (equipmentId: string, sensorId: string) => `${equipmentId}::${sensorId}`;
 
-const normalizeSensorValue = (value: unknown): number => {
+const normalizeSensorValue = (value: unknown, dataType?: string): number | string => {
+  if (dataType === "STRING") return String(value ?? "");
   if (typeof value === "number") return value;
   if (typeof value === "boolean") return value ? 1 : 0;
   if (value && typeof value === "object") {
@@ -264,12 +265,13 @@ const normalizeSensorValue = (value: unknown): number => {
 
     return normalizeSensorValue(
       payload.value ?? payload.currentValue ?? payload.numericValue ?? payload.data,
+      dataType,
     );
   }
 
   const numericText = String(value ?? "").replace(/,/g, "").match(/-?\d+(\.\d+)?/)?.[0] ?? "";
   const numericValue = Number(numericText);
-  return Number.isFinite(numericValue) ? numericValue : 0;
+  return Number.isFinite(numericValue) ? numericValue : String(value ?? "");
 };
 
 const getEquipmentStatus = (status?: string): UniversalEquipment["status"] => {
@@ -305,7 +307,7 @@ const mapCurrentResponseToEquipment = (
     return {
       sensorId,
       label: sensor.sensorName ?? sensor.name ?? sensorId,
-      value: normalizeSensorValue(rawValue),
+      value: normalizeSensorValue(rawValue, sensor.dataType),
       unit: sensor.unit ?? "",
       dataType: sensor.dataType,
       status: response.current?.status === "ERROR" ? "CRITICAL" as const : "NORMAL" as const,

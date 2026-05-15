@@ -5,7 +5,7 @@ export type SensorValueType = "FLOAT" | "DOUBLE" | "BOOLEAN" | "INTEGER" | "INT"
 export interface SensorData {
   sensorId?: string;
   label: string;
-  value: number;
+  value: number | string;
   unit: string;
   dataType?: SensorValueType;
   status: "NORMAL" | "CAUTION" | "CRITICAL";
