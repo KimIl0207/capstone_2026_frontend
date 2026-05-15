@@ -11,11 +11,6 @@ import { BarChartWidget } from "./widgets/BarChartWidget";
 import type { SensorData, UniversalEquipment } from "../types/equipment";
 import type { AlertItem, DashboardItem } from "../types/dashboard";
 
-type TrendPoint = {
-  t: string;
-  [key: string]: string | number;
-};
-
 type SelectedSensor = {
   key: string;
   equipmentId?: string;
@@ -31,8 +26,15 @@ type Props = {
   equipment: UniversalEquipment;
   equipmentById?: Record<string, UniversalEquipment>;
   alerts: AlertItem[];
-  trendData: TrendPoint[];
 };
+
+function EmptyWidgetState({ message = "No live sensor data" }: { message?: string }) {
+  return (
+    <div className="flex h-full min-h-[120px] items-center justify-center rounded-lg border border-slate-800 bg-slate-900/40 px-4 text-center text-xs font-semibold text-slate-500">
+      {message}
+    </div>
+  );
+}
 
 function parseDataKey(dataKey: string) {
   const [equipmentId, sensorId] = dataKey.includes("::") ? dataKey.split("::") : ["", dataKey];
@@ -101,13 +103,12 @@ function getPrimaryEquipment(widget: DashboardItem, fallback: UniversalEquipment
   return (equipmentId ? equipmentById?.[equipmentId] : undefined) ?? fallback;
 }
 
-export function WidgetRenderer({ widget, equipment, equipmentById, alerts, trendData }: Props) {
+export function WidgetRenderer({ widget, equipment, equipmentById, alerts }: Props) {
   const widgetEquipment = getPrimaryEquipment(widget, equipment, equipmentById);
   const selectedSensors = resolveSensorsForWidget(widget.dataKey, widgetEquipment, equipmentById);
   const targetSensor = selectedSensors[0];
-  const fallbackSensor = widgetEquipment.sensors[0];
-  const val = targetSensor?.value ?? fallbackSensor?.value ?? 0;
-  const unit = targetSensor?.unit ?? fallbackSensor?.unit ?? "";
+  const val = targetSensor?.value ?? 0;
+  const unit = targetSensor?.unit ?? "";
   const label = targetSensor?.label ?? widget.title;
 
   switch (widget.type) {
@@ -115,15 +116,17 @@ export function WidgetRenderer({ widget, equipment, equipmentById, alerts, trend
       return <OEEContent data={widgetEquipment} />;
 
     case "SENSORS":
+      if (widgetEquipment.sensors.length === 0) return <EmptyWidgetState />;
       return <SensorGridContent sensors={widgetEquipment.sensors} />;
 
     case "TREND":
-      return <TrendChartContent sensors={selectedSensors} fallbackData={trendData} />;
+      return <TrendChartContent sensors={selectedSensors} />;
 
     case "ALERTS":
       return <AlertsContent alerts={alerts} />;
 
     case "GAUGE":
+      if (!targetSensor) return <EmptyWidgetState />;
       return (
         <GaugeChartWidget
           value={val}
@@ -135,6 +138,7 @@ export function WidgetRenderer({ widget, equipment, equipmentById, alerts, trend
       );
 
     case "DONUT":
+      if (widgetEquipment.sensors.length === 0) return <EmptyWidgetState />;
       return (
         <DonutChartWidget
           title={widget.title}
@@ -147,6 +151,7 @@ export function WidgetRenderer({ widget, equipment, equipmentById, alerts, trend
       );
 
     case "STATUS":
+      if (!targetSensor) return <EmptyWidgetState />;
       return (
         <StatusWidget
           status={targetSensor?.status === "CRITICAL" ? "ALARM" : targetSensor?.status === "CAUTION" ? "CAUTION" : "RUNNING"}
@@ -159,9 +164,11 @@ export function WidgetRenderer({ widget, equipment, equipmentById, alerts, trend
       return <LogContent />;
 
     case "BAR_V":
+      if (selectedSensors.length === 0) return <EmptyWidgetState />;
       return <BarChartWidget direction="vertical" sensors={selectedSensors} />;
 
     case "BAR_H":
+      if (selectedSensors.length === 0) return <EmptyWidgetState />;
       return <BarChartWidget direction="horizontal" sensors={selectedSensors} />;
 
     default:

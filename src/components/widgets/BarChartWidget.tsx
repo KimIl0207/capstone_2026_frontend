@@ -14,9 +14,16 @@ export function BarChartWidget({
   sensors: SelectedSensor[];
 }) {
   const chartColors = ["#818cf8", "#34d399", "#fbbf24", "#f87171", "#a78bfa", "#f472b6"];
-  const data = sensors.length > 0
-    ? sensors
-    : [{ label: "No data", value: 0 }];
+  const data = sensors;
+
+  if (data.length === 0) {
+    return (
+      <div className="flex h-full min-h-[120px] w-full items-center justify-center rounded-lg border border-slate-800 bg-slate-900/40 px-4 text-center text-xs font-semibold text-slate-500">
+        No live sensor data
+      </div>
+    );
+  }
+
   const categoryData = data.map((sensor) => sensor.label.split(" - ").pop() ?? sensor.label);
   const values = data.map((sensor) => sensor.value);
 

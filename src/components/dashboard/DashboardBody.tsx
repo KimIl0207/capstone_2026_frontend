@@ -9,8 +9,6 @@ import {
   type DashboardState,
 } from "../../hooks/useDashboardState";
 
-import { TEMP_DATA } from "../../components/mocks/dashboardMockData";
-
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 
@@ -137,7 +135,6 @@ export default function DashboardBody() {
                     equipment={equipment}
                     equipmentById={equipmentById}
                     alerts={alerts}
-                    trendData={TEMP_DATA}
                   />
                 </div>
               </div>

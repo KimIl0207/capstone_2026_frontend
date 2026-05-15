@@ -51,6 +51,20 @@ function normalizeSensorValue(value: unknown): number {
   return Number.isFinite(numericValue) ? numericValue : 0;
 }
 
+function getSensorMergeKey(sensor: SensorData) {
+  return sensor.sensorId ?? sensor.label;
+}
+
+function mergeSensorData(previousSensors: SensorData[], nextSensors: SensorData[]) {
+  const sensorByKey = new Map(previousSensors.map((sensor) => [getSensorMergeKey(sensor), sensor]));
+
+  nextSensors.forEach((sensor) => {
+    sensorByKey.set(getSensorMergeKey(sensor), sensor);
+  });
+
+  return Array.from(sensorByKey.values());
+}
+
 function isGatewayPayload(value: unknown): value is GatewayPayload {
   if (!value || typeof value !== "object") return false;
 
@@ -120,13 +134,19 @@ function mapGatewayToDashboard(
 
   const equipmentId = String(payload.equipmentId ?? payload.equipmentEntityId ?? prev.id);
 
+  console.debug("[Equipment WebSocket] Sensor payload received", {
+    equipmentId,
+    sensorCount: mappedSensors.length,
+    sensorIds: mappedSensors.map((sensor) => sensor.sensorId ?? sensor.label),
+  });
+
   return {
     ...prev,
     id: equipmentId,
     name: payload.equipmentName ?? equipmentId,
     status: payload.status === "ERROR" ? "IDLE" : "RUNNING",
     lastUpdate: payload.timestamp ?? new Date().toISOString(),
-    sensors: mappedSensors,
+    sensors: mergeSensorData(prev.sensors, mappedSensors),
     metrics: {
       ...prev.metrics,
       oee: prev.metrics.oee,

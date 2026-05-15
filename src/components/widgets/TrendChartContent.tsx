@@ -1,10 +1,5 @@
 import ReactECharts from "echarts-for-react";
 
-type TrendPoint = {
-  t: string;
-  [key: string]: string | number;
-};
-
 type SelectedSensor = {
   key: string;
   label: string;
@@ -13,20 +8,30 @@ type SelectedSensor = {
 
 type TrendChartContentProps = {
   sensors: SelectedSensor[];
-  fallbackData: TrendPoint[];
 };
 
-export function TrendChartContent({ sensors, fallbackData }: TrendChartContentProps) {
+type TrendPoint = {
+  t: string;
+  [key: string]: string | number;
+};
+
+export function TrendChartContent({ sensors }: TrendChartContentProps) {
   const chartColors = ["#818cf8", "#34d399", "#fbbf24", "#f87171", "#a78bfa", "#f472b6"];
   const hasLiveSensors = sensors.length > 0;
-  const points: TrendPoint[] = hasLiveSensors
-    ? Array.from({ length: 12 }, (_, index) => ({
-      t: `${index + 1}`,
-      ...Object.fromEntries(sensors.map((sensor) => [sensor.key, sensor.value])),
-    }))
-    : fallbackData;
-  const seriesKeys = hasLiveSensors ? sensors.map((sensor) => sensor.key) : Object.keys(fallbackData[0] ?? {}).filter((key) => key !== "t");
+  const points: TrendPoint[] = Array.from({ length: 12 }, (_, index) => ({
+    t: `${index + 1}`,
+    ...Object.fromEntries(sensors.map((sensor) => [sensor.key, sensor.value])),
+  }));
+  const seriesKeys = sensors.map((sensor) => sensor.key);
   const labelByKey = new Map(sensors.map((sensor) => [sensor.key, sensor.label]));
+
+  if (!hasLiveSensors) {
+    return (
+      <div className="mt-2 flex min-h-[150px] w-full flex-grow items-center justify-center rounded-lg border border-slate-800 bg-slate-900/40 text-xs font-semibold text-slate-500">
+        No live sensor data
+      </div>
+    );
+  }
 
   const trendChartOption = {
     tooltip: {

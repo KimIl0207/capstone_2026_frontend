@@ -301,6 +301,21 @@ const getEquipmentStatus = (status?: string): UniversalEquipment["status"] => {
   return "RUNNING";
 };
 
+const getSensorMergeKey = (sensor: { sensorId?: string; label: string }) => sensor.sensorId ?? sensor.label;
+
+const mergeSensorData = (
+  previousSensors: UniversalEquipment["sensors"],
+  nextSensors: UniversalEquipment["sensors"],
+) => {
+  const sensorByKey = new Map(previousSensors.map((sensor) => [getSensorMergeKey(sensor), sensor]));
+
+  nextSensors.forEach((sensor) => {
+    sensorByKey.set(getSensorMergeKey(sensor), sensor);
+  });
+
+  return Array.from(sensorByKey.values());
+};
+
 const mapCurrentResponseToEquipment = (
   response: EquipmentCurrentResponse,
   fallback: UniversalEquipment,
@@ -321,6 +336,12 @@ const mapCurrentResponseToEquipment = (
 
   if (sensors.length === 0) {
     console.warn("[Equipment Current] Current response has no sensors", response);
+  } else {
+    console.debug("[Equipment Current] Sensor payload received", {
+      equipmentId: response.equipmentId,
+      sensorCount: sensors.length,
+      sensorIds: sensors.map((sensor) => sensor.sensorId ?? sensor.label),
+    });
   }
 
   return {
@@ -330,7 +351,7 @@ const mapCurrentResponseToEquipment = (
     type: response.field ?? fallback.type,
     status: getEquipmentStatus(response.current?.status),
     lastUpdate: response.current?.timestamp ?? new Date().toISOString(),
-    sensors,
+    sensors: mergeSensorData(fallback.sensors, sensors),
   };
 };
 
