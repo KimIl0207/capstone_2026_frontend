@@ -40,26 +40,32 @@ const widgetTypeLabels: Record<DashboardWidgetType, string> = {
 function getWidgetAvailability(type: DashboardWidgetType, selectedData: SelectedData[]) {
   const isMulti = selectedData.length > 1;
   const dataTypes = new Set(selectedData.map((item) => item.dataType ?? "FLOAT"));
+  const numericTypes = new Set(["FLOAT", "DOUBLE", "INTEGER", "INT"]);
   const isBooleanOnly = dataTypes.size === 1 && dataTypes.has("BOOLEAN");
-  const isNumericOnly = [...dataTypes].every((dataType) => dataType === "FLOAT" || dataType === "INTEGER");
+  const isNumericOnly = [...dataTypes].every((dataType) => numericTypes.has(dataType));
+  const isMixed = !isBooleanOnly && !isNumericOnly;
 
-  if (isMulti && (type === "GAUGE" || type === "DONUT" || type === "STATUS")) {
-    return { disabled: true, recommended: false, reason: "단일 데이터 전용" };
+  if (type === "GAUGE" && (isMulti || !isNumericOnly)) {
+    return { disabled: true, recommended: false, reason: isMulti ? "단일 수치 전용" : "수치 데이터 전용" };
   }
 
-  if (isBooleanOnly && (type === "GAUGE" || type === "TREND")) {
+  if (type === "STATUS" && (isMulti || !isBooleanOnly)) {
+    return { disabled: true, recommended: false, reason: isMulti ? "단일 상태 전용" : "상태 데이터 전용" };
+  }
+
+  if ((type === "TREND" || type === "BAR_V" || type === "BAR_H") && !isNumericOnly) {
     return { disabled: true, recommended: false, reason: "수치 데이터 전용" };
   }
 
-  if (!isNumericOnly && (type === "BAR_V" || type === "BAR_H")) {
-    return { disabled: true, recommended: false, reason: "수치 데이터 전용" };
+  if (type === "DONUT" && isMixed) {
+    return { disabled: true, recommended: false, reason: "동일 타입 데이터 전용" };
   }
 
   const recommended =
-    (isMulti && isNumericOnly && type === "TREND") ||
+    (isMulti && isNumericOnly && (type === "TREND" || type === "BAR_V" || type === "BAR_H")) ||
     (!isMulti && isNumericOnly && (type === "GAUGE" || type === "TREND")) ||
-    (!isMulti && isBooleanOnly && type === "STATUS") ||
-    (type === "LOG" && !isNumericOnly);
+    (isBooleanOnly && (type === "STATUS" || type === "DONUT")) ||
+    (isMixed && type === "LOG");
 
   return {
     disabled: false,
@@ -282,19 +288,24 @@ function WidgetBuilderModal({ state }: DashboardModalsProps) {
                     disabled={isDisabled}
                     onClick={() => setNewWidgetConfig({ ...newWidgetConfig, type })}
                     className={[
-                      "relative rounded-lg border p-5 text-left transition-colors",
+                      "relative rounded-lg border p-5 text-left transition-all",
                       isDisabled
                         ? "cursor-not-allowed border-slate-800 bg-slate-900 text-slate-700"
-                        : availability.recommended
-                          ? "border-emerald-400 bg-emerald-500/10 text-white shadow-lg shadow-emerald-500/10"
-                          : isSelected
-                            ? "border-cyan-400 bg-cyan-500/10 text-white"
+                        : isSelected
+                          ? "border-cyan-300 bg-cyan-500/15 text-white shadow-lg shadow-cyan-500/20 ring-2 ring-cyan-300/50"
+                          : availability.recommended
+                            ? "border-emerald-400 bg-emerald-500/10 text-white shadow-lg shadow-emerald-500/10 hover:border-cyan-400"
                             : "border-slate-700 bg-slate-900 text-slate-300 hover:border-cyan-500",
                     ].join(" ")}
                   >
                     {availability.recommended && !isDisabled && (
                       <span className="absolute right-3 top-3 rounded bg-emerald-500 px-2 py-0.5 text-[9px] font-black uppercase text-slate-950">
                         추천
+                      </span>
+                    )}
+                    {isSelected && !isDisabled && (
+                      <span className="absolute bottom-3 right-3 flex h-5 w-5 items-center justify-center rounded-full bg-cyan-300 text-[11px] font-black text-slate-950">
+                        ✓
                       </span>
                     )}
                     <span className="block text-sm font-black">{widgetTypeLabels[type]}</span>

@@ -2,6 +2,7 @@
 import {
   createDashboardWidget,
   deleteDashboardWidget,
+  getDashboardEquipment,
   getDashboardWidgets,
   getEquipmentCurrent,
   getMyDashboards,
@@ -752,13 +753,19 @@ export function useDashboardState({
     const dataTypes = new Set(selectedDataCart.map((item) => item.dataType ?? "FLOAT"));
     const isMulti = selectedDataCart.length > 1;
     const isBooleanOnly = dataTypes.size === 1 && dataTypes.has("BOOLEAN");
+    const numericTypes = new Set(["FLOAT", "DOUBLE", "INTEGER", "INT"]);
+    const isNumericOnly = [...dataTypes].every((dataType) => numericTypes.has(dataType));
 
-    if (isMulti) {
+    if (isMulti && isNumericOnly) {
       setNewWidgetConfig((prev) => ({ ...prev, type: "TREND" }));
+    } else if (isMulti && isBooleanOnly) {
+      setNewWidgetConfig((prev) => ({ ...prev, type: "DONUT" }));
     } else if (isBooleanOnly) {
       setNewWidgetConfig((prev) => ({ ...prev, type: "STATUS" }));
-    } else {
+    } else if (isNumericOnly) {
       setNewWidgetConfig((prev) => ({ ...prev, type: "GAUGE" }));
+    } else {
+      setNewWidgetConfig((prev) => ({ ...prev, type: "LOG" }));
     }
     setBuilderStep(2);
   };
@@ -869,7 +876,9 @@ export function useDashboardState({
     setIsNetworkScanning(true);
 
     try {
-      const equipmentResponse = await searchMyEquipment();
+      const equipmentResponse = dashboardId
+        ? await getDashboardEquipment(dashboardId)
+        : await searchMyEquipment();
       const equipments = equipmentResponse.data ?? [];
       const equipmentMasters = equipments.map(mapEquipmentResponseToMaster);
 
