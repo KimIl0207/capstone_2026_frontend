@@ -1,9 +1,10 @@
-import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useMemo, useState } from "react";
 
+import { logoutSession } from "../api/client";
 import { useDashboardState } from "../hooks/useDashboardState";
 import { useEquipmentWebSocket } from "../hooks/useEquipmentWebSocket";
-import { isAdmin } from "../utils/Auth";
+import { getAccessToken, isAdmin, logout } from "../utils/Auth";
 
 import DashboardModals from "../components/dashboard/DashboardModals";
 import { ALERTS_DATA, MOCK_DATA } from "../components/mocks/dashboardMockData";
@@ -81,6 +82,7 @@ export default function MainLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
   const canEditDashboard = isAdmin();
 
   const dashboardState = useDashboardState({
@@ -106,6 +108,21 @@ export default function MainLayout() {
   } = dashboardState;
 
   useEquipmentWebSocket(setEquipment);
+
+  const handleLogout = async () => {
+    const accessToken = getAccessToken();
+
+    try {
+      if (accessToken) {
+        await logoutSession(accessToken);
+      }
+    } catch (error) {
+      console.error("[Auth] Logout request failed", error);
+    } finally {
+      logout();
+      navigate("/login", { replace: true });
+    }
+  };
 
   const pageTitle = useMemo(() => {
     const current = navItems.find((item) => location.pathname.startsWith(item.to));
@@ -304,6 +321,13 @@ export default function MainLayout() {
               </span>
             </div>
           )}
+          <button
+            type="button"
+            onClick={() => void handleLogout()}
+            className="rounded-lg border border-slate-700 bg-slate-900 px-4 py-2 text-xs font-bold text-slate-300 transition-colors hover:border-rose-400 hover:text-rose-200"
+          >
+            Logout
+          </button>
         </header>
 
         <main className="min-w-0 flex-1 overflow-x-hidden">

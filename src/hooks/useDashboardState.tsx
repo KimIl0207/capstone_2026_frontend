@@ -778,6 +778,76 @@ export function useDashboardState({
     setBuilderStep(2);
   };
 
+  const ensureSelectedDataEntityIds = async (items: SelectedData[]) => {
+    const hasEntityIds = items.every((item) => toNumberId(item.eqId) && toNumberId(item.sensorId));
+
+    if (hasEntityIds) {
+      return items;
+    }
+
+    if (!dashboardId) {
+      throw new Error("대시보드를 불러온 뒤 위젯을 추가할 수 있습니다.");
+    }
+
+    const assets = Array.from(
+      items.reduce((map, item) => {
+        const equipment = allEquipments.find((candidate) => candidate.id === item.eqId);
+        const current = map.get(item.eqName) ?? {
+          equipmentName: item.eqName,
+          field: equipment?.type,
+          tags: [] as { sensorName: string }[],
+        };
+        const sensorName = item.sensorLabel ?? item.sensorId;
+
+        if (!current.tags.some((tag) => tag.sensorName === sensorName)) {
+          current.tags.push({ sensorName });
+        }
+
+        map.set(item.eqName, current);
+        return map;
+      }, new Map<string, { equipmentName: string; field?: string; tags: { sensorName: string }[] }>()),
+      ([, asset]) => asset,
+    );
+
+    const response = await applyEquipmentDiscovery({
+      dashboardId,
+      assets,
+    });
+    const appliedEquipment = response.data?.equipment ?? [];
+    const nextEquipments = appliedEquipment.map(mapAppliedEquipmentToMaster);
+
+    if (nextEquipments.length > 0) {
+      setAllEquipments((prev) => {
+        const byId = new Map(prev.map((equipment) => [equipment.id, equipment]));
+        nextEquipments.forEach((equipment) => byId.set(equipment.id, equipment));
+        return Array.from(byId.values());
+      });
+    }
+
+    return items.map((item) => {
+      const applied = appliedEquipment.find(
+        (candidate) => candidate.equipment.equipmentName === item.eqName,
+      );
+      const sensor = applied?.sensors.find(
+        (candidate) => candidate.sensorName === (item.sensorLabel ?? item.sensorId),
+      );
+
+      if (!applied || !sensor) {
+        throw new Error(`"${item.eqName} - ${item.sensorLabel ?? item.sensorId}" 엔티티 ID를 확인할 수 없습니다.`);
+      }
+
+      const eqId = String(applied.equipment.equipmentId);
+      const sensorId = String(sensor.sensorId);
+
+      return {
+        ...item,
+        eqId,
+        sensorId,
+        sensorKey: buildSensorDataKey(eqId, sensorId),
+      };
+    });
+  };
+
   const addWidgetToDashboard = async () => {
     if (selectedDataCart.length === 0) return;
     if (!dashboardId) {
@@ -786,19 +856,30 @@ export function useDashboardState({
     }
 
     const newId = `widget-${Date.now()}`;
+    let selectedDataForCreate = selectedDataCart;
+
+    try {
+      selectedDataForCreate = await ensureSelectedDataEntityIds(selectedDataCart);
+      setSelectedDataCart(selectedDataForCreate);
+    } catch (error) {
+      console.error("[Dashboard Widget] Failed to resolve entity ids", error);
+      setDashboardSaveError(error instanceof Error ? error.message : "장비/센서 엔티티 ID를 확인할 수 없습니다.");
+      return;
+    }
+
     const keysToSave =
-      selectedDataCart.length > 1
-        ? selectedDataCart.map((item) => item.sensorKey ?? buildSensorDataKey(item.eqId, item.sensorId))
-        : selectedDataCart[0].sensorKey ?? buildSensorDataKey(selectedDataCart[0].eqId, selectedDataCart[0].sensorId);
+      selectedDataForCreate.length > 1
+        ? selectedDataForCreate.map((item) => item.sensorKey ?? buildSensorDataKey(item.eqId, item.sensorId))
+        : selectedDataForCreate[0].sensorKey ?? buildSensorDataKey(selectedDataForCreate[0].eqId, selectedDataForCreate[0].sensorId);
 
     const newItem: DashboardItem = {
       i: newId,
       type: newWidgetConfig.type,
       dataKey: keysToSave,
       title:
-        selectedDataCart.length > 1
-          ? `다중 비교 (${selectedDataCart.length}개)`
-          : `${selectedDataCart[0].eqName} - ${selectedDataCart[0].sensorLabel ?? selectedDataCart[0].sensorId}`,
+        selectedDataForCreate.length > 1
+          ? `다중 비교 (${selectedDataForCreate.length}개)`
+          : `${selectedDataForCreate[0].eqName} - ${selectedDataForCreate[0].sensorLabel ?? selectedDataForCreate[0].sensorId}`,
       color: "bg-indigo-500",
       x: (layouts.length * 4) % 12,
       y: Infinity,
@@ -810,7 +891,7 @@ export function useDashboardState({
     setDashboardSaveError(null);
 
     try {
-      const createRequest = buildWidgetCreateRequest(dashboardId, newItem, selectedDataCart);
+      const createRequest = buildWidgetCreateRequest(dashboardId, newItem, selectedDataForCreate);
       console.info("[Dashboard Widget] Creating widget", createRequest);
 
       const response = await createDashboardWidget(
