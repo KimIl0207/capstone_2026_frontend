@@ -192,13 +192,15 @@ const buildWidgetCreateRequest = (
   const equipmentEntityId = primaryData ? toNumberId(primaryData.eqId) : undefined;
   const sensorEntityId = primaryData ? toNumberId(primaryData.sensorId) : undefined;
 
+  if (!equipmentEntityId || !sensorEntityId) {
+    throw new Error("장비/센서 엔티티 ID를 확인할 수 없습니다.");
+  }
+
   return {
     dashboardId,
-    equipmentId: primaryData?.eqId,
     equipmentEntityId,
     widgetType: item.type,
     title: item.title,
-    sensorId: primaryData?.sensorId,
     sensorEntityId,
     chartType: getChartType(item.type),
     dataType: primaryData?.dataType,
@@ -793,9 +795,12 @@ export function useDashboardState({
     setDashboardSaveError(null);
 
     try {
+      const createRequest = buildWidgetCreateRequest(dashboardId, newItem, selectedDataCart);
+      console.info("[Dashboard Widget] Creating widget", createRequest);
+
       const response = await createDashboardWidget(
         dashboardId,
-        buildWidgetCreateRequest(dashboardId, newItem, selectedDataCart),
+        createRequest,
       );
 
       if (!response.data) {
