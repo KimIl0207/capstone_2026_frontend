@@ -147,6 +147,8 @@ const mapWidgetResponseToDashboardItem = (widget: WidgetResponseDto): DashboardI
       ? configDataKey.map(String)
       : typeof configDataKey === "string"
         ? configDataKey
+        : widget.equipmentEntityId && widget.sensorEntityId
+          ? buildSensorDataKey(String(widget.equipmentEntityId), String(widget.sensorEntityId))
         : widget.sensorId ?? widget.sensorName ?? widget.widgetType;
 
   return {
@@ -343,6 +345,9 @@ export function useDashboardState({
 
   const [isEqModalOpen, setIsEqModalOpen] = useState(false);
   const [equipment, setEquipmentState] = useState<UniversalEquipment>(mockData);
+  const [equipmentById, setEquipmentById] = useState<Record<string, UniversalEquipment>>(() => ({
+    [mockData.id]: mockData,
+  }));
   const [alerts] = useState(alertsData);
   const [time, setTime] = useState(new Date());
   const [dashboardId, setDashboardId] = useState<number | null>(null);
@@ -402,6 +407,10 @@ export function useDashboardState({
     setEquipmentState((prev) => {
       const nextEquipment = typeof value === "function" ? value(prev) : value;
       upsertEquipmentMaster(nextEquipment);
+      setEquipmentById((previous) => ({
+        ...previous,
+        [nextEquipment.id]: nextEquipment,
+      }));
       return nextEquipment;
     });
   }, [upsertEquipmentMaster]);
@@ -425,10 +434,10 @@ export function useDashboardState({
   const loadInitialEquipmentCurrent = useCallback(async () => {
     try {
       const response = await getMyEquipmentCurrent();
-      const firstEquipment = response.data?.[0];
+      const equipments = response.data ?? [];
 
-      if (firstEquipment) {
-        applyCurrentEquipment(firstEquipment);
+      if (equipments.length > 0) {
+        equipments.forEach(applyCurrentEquipment);
       }
     } catch (error) {
       console.error("[Equipment Current] Failed to load current sensor values", error);
@@ -1072,6 +1081,7 @@ export function useDashboardState({
     time,
     dashboardId,
     equipment,
+    equipmentById,
     layouts,
     responsiveLayouts,
     currentBreakpoint,

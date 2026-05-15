@@ -29,6 +29,7 @@ type SelectedSensor = {
 type Props = {
   widget: DashboardItem;
   equipment: UniversalEquipment;
+  equipmentById?: Record<string, UniversalEquipment>;
   alerts: AlertItem[];
   trendData: TrendPoint[];
 };
@@ -38,15 +39,36 @@ function parseDataKey(dataKey: string) {
   return { equipmentId, sensorId };
 }
 
-function resolveSensor(dataKey: string, equipment: UniversalEquipment): SelectedSensor | undefined {
+function resolveEquipment(dataKey: string, fallback: UniversalEquipment, equipmentById?: Record<string, UniversalEquipment>) {
   const { equipmentId, sensorId } = parseDataKey(dataKey);
+  const equipment = equipmentId ? equipmentById?.[equipmentId] : fallback;
 
-  if (equipmentId && equipment.id !== equipmentId) {
+  return {
+    equipment: equipment ?? fallback,
+    equipmentId,
+    sensorId,
+  };
+}
+
+function resolveSensor(
+  dataKey: string,
+  fallbackEquipment: UniversalEquipment,
+  equipmentById?: Record<string, UniversalEquipment>,
+): SelectedSensor | undefined {
+  const { equipment, equipmentId, sensorId } = resolveEquipment(dataKey, fallbackEquipment, equipmentById);
+
+  if (equipmentId && equipment.id !== equipmentId && !equipmentById?.[equipmentId]) {
     return undefined;
   }
 
   const sensor = equipment.sensors.find(
-    (item) => item.sensorId === sensorId || item.label === sensorId,
+    (item) =>
+      item.sensorId === sensorId ||
+      item.label === sensorId ||
+      String(item.sensorId ?? "").endsWith(sensorId) ||
+      sensorId.endsWith(String(item.sensorId ?? "")) ||
+      String(item.label ?? "").endsWith(sensorId) ||
+      sensorId.endsWith(String(item.label ?? "")),
   );
 
   if (!sensor) return undefined;
@@ -62,27 +84,38 @@ function resolveSensor(dataKey: string, equipment: UniversalEquipment): Selected
   };
 }
 
-function resolveSensors(dataKey: string | string[], equipment: UniversalEquipment) {
+function resolveSensorsForWidget(
+  dataKey: string | string[],
+  equipment: UniversalEquipment,
+  equipmentById?: Record<string, UniversalEquipment>,
+) {
   const keys = Array.isArray(dataKey) ? dataKey : [dataKey];
   return keys
-    .map((key) => resolveSensor(key, equipment))
+    .map((key) => resolveSensor(key, equipment, equipmentById))
     .filter((sensor): sensor is SelectedSensor => Boolean(sensor));
 }
 
-export function WidgetRenderer({ widget, equipment, alerts, trendData }: Props) {
-  const selectedSensors = resolveSensors(widget.dataKey, equipment);
+function getPrimaryEquipment(widget: DashboardItem, fallback: UniversalEquipment, equipmentById?: Record<string, UniversalEquipment>) {
+  const firstKey = Array.isArray(widget.dataKey) ? widget.dataKey[0] : widget.dataKey;
+  const { equipmentId } = parseDataKey(firstKey);
+  return (equipmentId ? equipmentById?.[equipmentId] : undefined) ?? fallback;
+}
+
+export function WidgetRenderer({ widget, equipment, equipmentById, alerts, trendData }: Props) {
+  const widgetEquipment = getPrimaryEquipment(widget, equipment, equipmentById);
+  const selectedSensors = resolveSensorsForWidget(widget.dataKey, widgetEquipment, equipmentById);
   const targetSensor = selectedSensors[0];
-  const fallbackSensor = equipment.sensors[0];
+  const fallbackSensor = widgetEquipment.sensors[0];
   const val = targetSensor?.value ?? fallbackSensor?.value ?? 0;
   const unit = targetSensor?.unit ?? fallbackSensor?.unit ?? "";
   const label = targetSensor?.label ?? widget.title;
 
   switch (widget.type) {
     case "OEE":
-      return <OEEContent data={equipment} />;
+      return <OEEContent data={widgetEquipment} />;
 
     case "SENSORS":
-      return <SensorGridContent sensors={equipment.sensors} />;
+      return <SensorGridContent sensors={widgetEquipment.sensors} />;
 
     case "TREND":
       return <TrendChartContent sensors={selectedSensors} fallbackData={trendData} />;
@@ -106,9 +139,9 @@ export function WidgetRenderer({ widget, equipment, alerts, trendData }: Props) 
         <DonutChartWidget
           title={widget.title}
           data={[
-            { name: "Normal", value: equipment.sensors.filter((sensor) => sensor.status === "NORMAL").length, color: "#10b981" },
-            { name: "Caution", value: equipment.sensors.filter((sensor) => sensor.status === "CAUTION").length, color: "#f59e0b" },
-            { name: "Critical", value: equipment.sensors.filter((sensor) => sensor.status === "CRITICAL").length, color: "#ef4444" },
+            { name: "Normal", value: widgetEquipment.sensors.filter((sensor) => sensor.status === "NORMAL").length, color: "#10b981" },
+            { name: "Caution", value: widgetEquipment.sensors.filter((sensor) => sensor.status === "CAUTION").length, color: "#f59e0b" },
+            { name: "Critical", value: widgetEquipment.sensors.filter((sensor) => sensor.status === "CRITICAL").length, color: "#ef4444" },
           ]}
         />
       );

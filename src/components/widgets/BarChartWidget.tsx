@@ -3,6 +3,7 @@ import ReactECharts from "echarts-for-react";
 type SelectedSensor = {
   label: string;
   value: number;
+  unit?: string;
 };
 
 export function BarChartWidget({
@@ -16,7 +17,7 @@ export function BarChartWidget({
   const data = sensors.length > 0
     ? sensors
     : [{ label: "No data", value: 0 }];
-  const categoryData = data.map((sensor) => sensor.label);
+  const categoryData = data.map((sensor) => sensor.label.split(" - ").pop() ?? sensor.label);
   const values = data.map((sensor) => sensor.value);
 
   const option = {
@@ -27,13 +28,25 @@ export function BarChartWidget({
       borderColor: "#334155",
       textStyle: { color: "#f8fafc", fontSize: 11 },
     },
-    grid: { top: 20, right: 20, bottom: 30, left: 45, containLabel: true },
+    grid: {
+      top: 24,
+      right: direction === "vertical" ? 18 : 36,
+      bottom: direction === "vertical" ? 46 : 24,
+      left: direction === "vertical" ? 46 : 92,
+      containLabel: true,
+    },
     xAxis: direction === "vertical"
       ? {
         type: "category",
         data: categoryData,
         axisTick: { alignWithLabel: true },
-        axisLabel: { color: "#64748b", fontSize: 10 },
+        axisLabel: {
+          color: "#64748b",
+          fontSize: 10,
+          interval: 0,
+          overflow: "truncate",
+          width: 72,
+        },
       }
       : {
         type: "value",
@@ -50,7 +63,12 @@ export function BarChartWidget({
         type: "category",
         data: categoryData,
         axisTick: { alignWithLabel: true },
-        axisLabel: { color: "#64748b", fontSize: 10 },
+        axisLabel: {
+          color: "#64748b",
+          fontSize: 10,
+          overflow: "truncate",
+          width: 84,
+        },
       },
     series: [
       {
@@ -60,6 +78,17 @@ export function BarChartWidget({
         itemStyle: {
           color: (params: { dataIndex: number }) => chartColors[params.dataIndex % chartColors.length],
           borderRadius: direction === "vertical" ? [3, 3, 0, 0] : [0, 3, 3, 0],
+        },
+        label: {
+          show: true,
+          position: direction === "vertical" ? "top" : "right",
+          color: "#cbd5e1",
+          fontSize: 10,
+          formatter: (params: { value: number; dataIndex: number }) => {
+            const sensor = data[params.dataIndex];
+            const unit = "unit" in sensor && sensor.unit ? sensor.unit : "";
+            return `${params.value}${unit}`;
+          },
         },
         data: values,
       },

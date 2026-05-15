@@ -25,6 +25,7 @@ export default function DashboardBody() {
     alerts,
     autoArrange,
     equipment,
+    equipmentById,
     layouts,
     responsiveLayouts,
     togglePinWidget,
@@ -134,6 +135,7 @@ export default function DashboardBody() {
                   <WidgetRenderer
                     widget={widget}
                     equipment={equipment}
+                    equipmentById={equipmentById}
                     alerts={alerts}
                     trendData={TEMP_DATA}
                   />
