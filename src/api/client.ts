@@ -66,6 +66,33 @@ export type SensorResponse = {
   equipmentId: number;
 };
 
+export type DiscoveredTag = {
+  sensorName: string;
+};
+
+export type DiscoveredEquipment = {
+  equipmentName: string;
+  field?: string;
+  tags?: DiscoveredTag[];
+};
+
+export type DiscoveryApplyRequest = {
+  dashboardId: number;
+  assets: DiscoveredEquipment[];
+};
+
+export type AppliedEquipment = {
+  equipment: EquipmentResponse;
+  sensors: SensorResponse[];
+};
+
+export type DiscoveryApplyResponse = {
+  dashboardId: number;
+  equipmentCount: number;
+  sensorCount: number;
+  equipment: AppliedEquipment[];
+};
+
 export type SensorDetails = {
   sensorId?: string;
   sensorName?: string;
@@ -278,6 +305,12 @@ export function searchMyEquipment(keyword = "", accessToken?: string) {
 
   const query = params.toString();
   return apiClient.get<ApiResponse<EquipmentResponse[]>>(`/api/equipment/search${query ? `?${query}` : ""}`, {
+    accessToken,
+  });
+}
+
+export function applyEquipmentDiscovery(body: DiscoveryApplyRequest, accessToken?: string) {
+  return apiClient.post<ApiResponse<DiscoveryApplyResponse>>("/api/equipment/discovery/apply", body, {
     accessToken,
   });
 }

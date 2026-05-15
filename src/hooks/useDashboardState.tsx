@@ -1,5 +1,6 @@
 ﻿import { useCallback, useEffect, useState, useRef, type Dispatch, type SetStateAction } from "react";
 import {
+  applyEquipmentDiscovery,
   createDashboardWidget,
   deleteDashboardWidget,
   getDashboardEquipment,
@@ -10,6 +11,7 @@ import {
   searchEquipmentSensors,
   searchMyEquipment,
   updateWidgetLayouts,
+  type AppliedEquipment,
   type WidgetRequestDto,
   type WidgetResponseDto,
 } from "../api/client";
@@ -264,6 +266,12 @@ const mapSensorResponseToMeta = (sensor: SensorResponse) => ({
   id: String(sensor.sensorId),
   label: sensor.sensorName,
   unit: "",
+});
+
+const mapAppliedEquipmentToMaster = (item: AppliedEquipment): EquipmentMaster => ({
+  ...mapEquipmentResponseToMaster(item.equipment),
+  sensors: item.sensors.map(mapSensorResponseToMeta),
+  sensorsLoaded: true,
 });
 
 const buildSensorDataKey = (equipmentId: string, sensorId: string) => `${equipmentId}::${sensorId}`;
@@ -876,10 +884,14 @@ export function useDashboardState({
     setIsNetworkScanning(true);
 
     try {
-      const equipmentResponse = dashboardId
+      const dashboardEquipmentResponse = dashboardId
         ? await getDashboardEquipment(dashboardId)
+        : undefined;
+      const dashboardEquipments = dashboardEquipmentResponse?.data ?? [];
+      const equipmentResponse = dashboardEquipments.length > 0
+        ? dashboardEquipmentResponse
         : await searchMyEquipment();
-      const equipments = equipmentResponse.data ?? [];
+      const equipments = equipmentResponse?.data ?? [];
       const equipmentMasters = equipments.map(mapEquipmentResponseToMaster);
 
       setAllEquipments(equipmentMasters);
@@ -906,9 +918,54 @@ export function useDashboardState({
     setIsEqModalOpen(false);
   };
 
-  const applyEquipmentRegistration = () => {
-    setIsEqModalOpen(false);
-    alert("선택된 모든 자산과 태그가 성공적으로 동기화되었습니다.");
+  const applyEquipmentRegistration = async () => {
+    if (!dashboardId) {
+      alert("대시보드를 불러온 뒤 장비를 등록할 수 있습니다.");
+      return;
+    }
+
+    const assets = allEquipments.map((equipment) => ({
+      equipmentName: equipment.name,
+      field: equipment.type,
+      tags: equipment.sensors.map((sensor) => ({
+        sensorName: sensor.label || sensor.id,
+      })),
+    }));
+
+    if (assets.length === 0) {
+      alert("등록할 장비가 없습니다.");
+      return;
+    }
+
+    setIsNetworkScanning(true);
+
+    try {
+      const response = await applyEquipmentDiscovery({
+        dashboardId,
+        assets,
+      });
+      const appliedEquipment = response.data?.equipment ?? [];
+      const nextEquipments = appliedEquipment.map(mapAppliedEquipmentToMaster);
+
+      if (nextEquipments.length > 0) {
+        setAllEquipments(nextEquipments);
+        setTempSelection((prev) => {
+          if (!prev.eqId || nextEquipments.some((item) => item.id === prev.eqId)) {
+            return prev;
+          }
+
+          return { eqId: "", sensorId: "" };
+        });
+      }
+
+      setIsEqModalOpen(false);
+      alert("선택된 모든 자산과 태그가 성공적으로 동기화되었습니다.");
+    } catch (error) {
+      console.error("[Equipment Discovery] Failed to apply equipment discovery", error);
+      alert(error instanceof Error ? error.message : "장비 등록에 실패했습니다.");
+    } finally {
+      setIsNetworkScanning(false);
+    }
   };
 
   // 위젯 고정/고정 해제 함수
