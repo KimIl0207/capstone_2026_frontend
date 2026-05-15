@@ -1,8 +1,8 @@
 import { useEffect, type Dispatch, type SetStateAction } from "react";
 
 import { subscribeToEquipmentGateway } from "../api/socket";
+import type { DashboardItem } from "../types/dashboard";
 import type { SensorData, UniversalEquipment } from "../types/equipment";
-import { getUserId } from "../utils/Auth";
 
 type GatewaySensor = {
   sensorId?: string | number;
@@ -159,25 +159,40 @@ function mapGatewayToDashboard(
 
 export function useEquipmentWebSocket(
   setEquipment: Dispatch<SetStateAction<UniversalEquipment>>,
+  layouts: DashboardItem[] = [],
 ) {
   useEffect(() => {
-    const { unsubscribe } = subscribeToEquipmentGateway<GatewayPayload>((message) => {
-      const payload = unwrapGatewayPayload(message.body);
+    const equipmentEntityIds = Array.from(new Set(
+      layouts
+        .flatMap((widget) => Array.isArray(widget.dataKey) ? widget.dataKey : [widget.dataKey])
+        .map((dataKey) => String(dataKey).split("::")[0])
+        .filter((equipmentId) => equipmentId && Number.isInteger(Number(equipmentId))),
+    ));
 
-      if (!payload) {
-        console.debug("[Equipment WebSocket] Ignored non-sensor payload", {
-          body: message.body,
-          rawBody: message.rawBody,
-          parseError: message.parseError,
-        });
-        return;
-      }
+    if (equipmentEntityIds.length === 0) {
+      console.info("[Equipment WebSocket] No equipment topics to subscribe");
+      return;
+    }
 
-      setEquipment((prev) => mapGatewayToDashboard(prev, payload));
-    }, { userId: getUserId() });
+    const subscriptions = equipmentEntityIds.map((equipmentEntityId) =>
+      subscribeToEquipmentGateway<GatewayPayload>((message) => {
+        const payload = unwrapGatewayPayload(message.body);
+
+        if (!payload) {
+          console.debug("[Equipment WebSocket] Ignored non-sensor payload", {
+            body: message.body,
+            rawBody: message.rawBody,
+            parseError: message.parseError,
+          });
+          return;
+        }
+
+        setEquipment((prev) => mapGatewayToDashboard(prev, payload));
+      }, { mode: "equipment-entity-widgets", equipmentEntityId }),
+    );
 
     return () => {
-      unsubscribe();
+      subscriptions.forEach(({ unsubscribe }) => unsubscribe());
     };
-  }, [setEquipment]);
+  }, [layouts, setEquipment]);
 }

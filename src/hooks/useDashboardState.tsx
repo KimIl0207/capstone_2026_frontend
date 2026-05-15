@@ -4,10 +4,10 @@ import {
   createDashboardWidget,
   deleteDashboardWidget,
   getDashboardEquipment,
-  getDashboardWidgets,
   getEquipmentCurrent,
   getMyDashboards,
   getMyEquipmentCurrent,
+  getMyWidgets,
   searchEquipmentSensors,
   searchMyEquipment,
   updateWidgetLayouts,
@@ -15,7 +15,6 @@ import {
   type WidgetRequestDto,
   type WidgetResponseDto,
 } from "../api/client";
-import { getUserId } from "../utils/Auth";
 import type { EquipmentCurrentResponse, EquipmentResponse, SensorResponse } from "../api/client";
 import type { UniversalEquipment } from "../types/equipment";
 import type {
@@ -27,8 +26,6 @@ import type {
 } from "../types/dashboard";
 import type { Layout, ResponsiveLayouts } from "react-grid-layout";
 
-const DASHBOARD_LAYOUT_STORAGE_KEY = "myFoundryDashboard";
-const getDashboardLayoutStorageKey = (userId: string | number) => `${DASHBOARD_LAYOUT_STORAGE_KEY}:${userId}`;
 const DASHBOARD_AUTOSAVE_INTERVAL_MS = 30000;
 export type DashboardBreakpoint = "lg" | "md" | "sm";
 export type DashboardLayouts = Partial<Record<DashboardBreakpoint, DashboardItem[]>>;
@@ -56,53 +53,26 @@ type WidgetConfig = {
 
 // useDashboardState 훅의 파라미터 타입 정의
 type UseDashboardStateParams = {
-  mockData: UniversalEquipment;
-  initialLayouts: DashboardLayouts;
   alertsData: AlertItem[];
 };
 
-const isDashboardItemArray = (value: unknown): value is DashboardItem[] => {
-  return (
-    Array.isArray(value) &&
-    value.every(
-      (item) =>
-        item &&
-        typeof item === "object" &&
-        "i" in item &&
-        "x" in item &&
-        "y" in item &&
-        "w" in item &&
-        "h" in item,
-    )
-  );
+const EMPTY_EQUIPMENT: UniversalEquipment = {
+  id: "",
+  name: "No equipment",
+  type: "",
+  status: "IDLE",
+  lastUpdate: "",
+  metrics: {
+    oee: 0,
+    availability: 0,
+    performance: 0,
+    quality: 0,
+  },
+  sensors: [],
 };
 
-const normalizeStoredLayouts = (
-  stored: unknown,
-  fallback: DashboardLayouts,
-): DashboardLayouts => {
-  if (isDashboardItemArray(stored)) {
-    return { lg: stored };
-  }
-
-  if (!stored || typeof stored !== "object") {
-    return { lg: fallback.lg ?? [] };
-  }
-
-  const next: DashboardLayouts = {};
-
-  DASHBOARD_BREAKPOINT_KEYS.forEach((breakpoint) => {
-    const value = (stored as Record<string, unknown>)[breakpoint];
-    if (isDashboardItemArray(value)) {
-      next[breakpoint] = value;
-    }
-  });
-
-  return next.lg ? next : { lg: fallback.lg ?? [] };
-};
-
-const getBaseLayout = (layouts: DashboardLayouts, fallback: DashboardLayouts) => {
-  return layouts.lg ?? fallback.lg ?? [];
+const getBaseLayout = (layouts: DashboardLayouts) => {
+  return layouts.lg ?? [];
 };
 
 const getServerWidgetId = (widget: DashboardItem) => {
@@ -142,18 +112,26 @@ const mapWidgetResponseToDashboardItem = (widget: WidgetResponseDto): DashboardI
   const config = parseWidgetConfig(widget.configJson);
   const type = isDashboardWidgetType(widget.widgetType) ? widget.widgetType : "GAUGE";
   const configDataKey = config.dataKey;
+  const serverDataKey = widget.equipmentEntityId && widget.sensorEntityId
+    ? buildSensorDataKey(String(widget.equipmentEntityId), String(widget.sensorEntityId))
+    : undefined;
   const dataKey =
-    Array.isArray(configDataKey)
+    serverDataKey
+      ? serverDataKey
+      : Array.isArray(configDataKey)
       ? configDataKey.map(String)
       : typeof configDataKey === "string"
         ? configDataKey
-        : widget.equipmentEntityId && widget.sensorEntityId
-          ? buildSensorDataKey(String(widget.equipmentEntityId), String(widget.sensorEntityId))
         : widget.sensorId ?? widget.sensorName ?? widget.widgetType;
 
   return {
     i: String(widget.id),
     serverWidgetId: widget.id,
+    equipmentEntityId: widget.equipmentEntityId,
+    equipmentName: widget.equipmentName,
+    sensorEntityId: widget.sensorEntityId,
+    sensorId: widget.sensorId,
+    sensorName: widget.sensorName,
     type,
     title: widget.title,
     dataKey,
@@ -357,41 +335,25 @@ const mapCurrentResponseToEquipment = (
 
 // useDashboardState 훅 정의
 export function useDashboardState({
-  mockData,
-  initialLayouts,
   alertsData,
 }: UseDashboardStateParams) {
-  const [dashboardLayoutStorageKey] = useState(() => getDashboardLayoutStorageKey(getUserId()));
   const [allEquipments, setAllEquipments] = useState<EquipmentMaster[]>([]);
 
   const [isEqModalOpen, setIsEqModalOpen] = useState(false);
-  const [equipment, setEquipmentState] = useState<UniversalEquipment>(mockData);
-  const [equipmentById, setEquipmentById] = useState<Record<string, UniversalEquipment>>(() => ({
-    [mockData.id]: mockData,
-  }));
+  const [equipment, setEquipmentState] = useState<UniversalEquipment>(EMPTY_EQUIPMENT);
+  const [equipmentById, setEquipmentById] = useState<Record<string, UniversalEquipment>>({});
   const [alerts] = useState(alertsData);
   const [time, setTime] = useState(new Date());
   const [dashboardId, setDashboardId] = useState<number | null>(null);
   const [isLoadingDashboardWidgets, setIsLoadingDashboardWidgets] = useState(false);
 
-  const [responsiveLayouts, setResponsiveLayouts] = useState<DashboardLayouts>(() => {
-    try {
-      const savedLayout = localStorage.getItem(dashboardLayoutStorageKey);
-      if (!savedLayout) return { lg: initialLayouts.lg ?? [] };
-
-      const parsed = JSON.parse(savedLayout);
-      return normalizeStoredLayouts(parsed, initialLayouts);
-    } catch (e) {
-      console.error("Layout 로딩 실패:", e);
-      return { lg: initialLayouts.lg ?? [] };
-    }
-  });
+  const [responsiveLayouts, setResponsiveLayouts] = useState<DashboardLayouts>({ lg: [] });
   const [currentBreakpoint, setCurrentBreakpoint] = useState<DashboardBreakpoint>("lg");
-  const layouts = getBaseLayout(responsiveLayouts, initialLayouts);
+  const layouts = getBaseLayout(responsiveLayouts);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newWidgetConfig, setNewWidgetConfig] = useState<WidgetConfig>({
     type: "GAUGE",
-    dataKey: "Temperature",
+    dataKey: "",
     title: "New Widget",
   });
 
@@ -479,12 +441,8 @@ export function useDashboardState({
 
       setDashboardId(dashboard.dashboardId);
 
-      const widgetsResponse = await getDashboardWidgets(dashboard.dashboardId);
+      const widgetsResponse = await getMyWidgets();
       const widgets = widgetsResponse.data ?? [];
-
-      if (widgets.length === 0) {
-        return;
-      }
 
       const serverLayout = widgets.map(mapWidgetResponseToDashboardItem);
       setResponsiveLayouts({ lg: serverLayout });
@@ -518,12 +476,6 @@ export function useDashboardState({
     return () => window.clearInterval(timer);
   }, [loadInitialEquipmentCurrent]);
 
-  useEffect(() => {
-    if (layouts.length > 0) {
-      localStorage.setItem(dashboardLayoutStorageKey, JSON.stringify(responsiveLayouts));
-    }
-  }, [dashboardLayoutStorageKey, layouts.length, responsiveLayouts]);
-
   const saveDashboardState = useCallback(async () => {
     setIsSavingDashboard(true);
     setDashboardSaveError(null);
@@ -535,7 +487,7 @@ export function useDashboardState({
         await deleteDashboardWidget(widgetId);
       }
 
-      const layoutsForSave = getBaseLayout(responsiveLayouts, initialLayouts);
+      const layoutsForSave = getBaseLayout(responsiveLayouts);
 
       const layoutItems = layoutsForSave
         .map((widget) => {
@@ -578,7 +530,7 @@ export function useDashboardState({
     } finally {
       setIsSavingDashboard(false);
     }
-  }, [initialLayouts, responsiveLayouts]);
+  }, [responsiveLayouts]);
 
   useEffect(() => {
     if (!isDashboardDirty || isSavingDashboard) return;
@@ -647,7 +599,7 @@ export function useDashboardState({
   ) => {
     setIsDashboardDirty(true);
     setResponsiveLayouts((prev) => {
-      const base = getBaseLayout(prev, initialLayouts);
+      const base = getBaseLayout(prev);
       const next: DashboardLayouts = {};
 
       DASHBOARD_BREAKPOINT_KEYS.forEach((breakpoint) => {
@@ -663,7 +615,7 @@ export function useDashboardState({
   ) => {
     setIsDashboardDirty(true);
     setResponsiveLayouts((prev) => {
-      const previous = getBaseLayout(prev, initialLayouts);
+      const previous = getBaseLayout(prev);
       const nextLg = typeof value === "function" ? value(previous) : value;
       return { ...prev, lg: nextLg };
     });
@@ -690,7 +642,7 @@ export function useDashboardState({
   ) => {
     setIsDashboardDirty(true);
     setResponsiveLayouts((prev) => {
-      const base = getBaseLayout(prev, initialLayouts);
+      const base = getBaseLayout(prev);
       const source = prev[breakpoint] ?? base;
       const updated = mergeLayoutMetadata(source, currentLayout);
 
@@ -715,7 +667,7 @@ export function useDashboardState({
     if (allLayouts) {
       setIsDashboardDirty(true);
       setResponsiveLayouts((prev) => {
-        const base = getBaseLayout(prev, initialLayouts);
+        const base = getBaseLayout(prev);
         const next: DashboardLayouts = { ...prev };
 
         DASHBOARD_BREAKPOINT_KEYS.forEach((breakpoint) => {

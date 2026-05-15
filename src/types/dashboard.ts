@@ -13,6 +13,11 @@ export type DashboardWidgetType =
 export interface DashboardItem {
   i: string;
   serverWidgetId?: number;
+  equipmentEntityId?: number;
+  equipmentName?: string;
+  sensorEntityId?: number;
+  sensorId?: string;
+  sensorName?: string;
   x: number;
   y: number;
   w: number;

@@ -46,7 +46,7 @@ function resolveEquipment(dataKey: string, fallback: UniversalEquipment, equipme
   const equipment = equipmentId ? equipmentById?.[equipmentId] : fallback;
 
   return {
-    equipment: equipment ?? fallback,
+    equipment,
     equipmentId,
     sensorId,
   };
@@ -56,8 +56,13 @@ function resolveSensor(
   dataKey: string,
   fallbackEquipment: UniversalEquipment,
   equipmentById?: Record<string, UniversalEquipment>,
+  widget?: DashboardItem,
 ): SelectedSensor | undefined {
   const { equipment, equipmentId, sensorId } = resolveEquipment(dataKey, fallbackEquipment, equipmentById);
+
+  if (!equipment) {
+    return undefined;
+  }
 
   if (equipmentId && equipment.id !== equipmentId && !equipmentById?.[equipmentId]) {
     return undefined;
@@ -67,6 +72,11 @@ function resolveSensor(
     (item) =>
       item.sensorId === sensorId ||
       item.label === sensorId ||
+      item.sensorId === widget?.sensorId ||
+      item.label === widget?.sensorId ||
+      item.sensorId === widget?.sensorName ||
+      item.label === widget?.sensorName ||
+      String(item.sensorId ?? "") === String(widget?.sensorEntityId ?? "") ||
       String(item.sensorId ?? "").endsWith(sensorId) ||
       sensorId.endsWith(String(item.sensorId ?? "")) ||
       String(item.label ?? "").endsWith(sensorId) ||
@@ -87,25 +97,30 @@ function resolveSensor(
 }
 
 function resolveSensorsForWidget(
-  dataKey: string | string[],
-  equipment: UniversalEquipment,
+  widget: DashboardItem,
+  equipment: UniversalEquipment | undefined,
   equipmentById?: Record<string, UniversalEquipment>,
 ) {
+  if (!equipment) return [];
+
+  const dataKey = widget.dataKey;
   const keys = Array.isArray(dataKey) ? dataKey : [dataKey];
   return keys
-    .map((key) => resolveSensor(key, equipment, equipmentById))
+    .map((key) => resolveSensor(key, equipment, equipmentById, widget))
     .filter((sensor): sensor is SelectedSensor => Boolean(sensor));
 }
 
 function getPrimaryEquipment(widget: DashboardItem, fallback: UniversalEquipment, equipmentById?: Record<string, UniversalEquipment>) {
   const firstKey = Array.isArray(widget.dataKey) ? widget.dataKey[0] : widget.dataKey;
   const { equipmentId } = parseDataKey(firstKey);
-  return (equipmentId ? equipmentById?.[equipmentId] : undefined) ?? fallback;
+  const serverEquipmentId = widget.equipmentEntityId ? String(widget.equipmentEntityId) : "";
+  const resolvedEquipmentId = equipmentId || serverEquipmentId;
+  return resolvedEquipmentId ? equipmentById?.[resolvedEquipmentId] : fallback;
 }
 
 export function WidgetRenderer({ widget, equipment, equipmentById, alerts }: Props) {
   const widgetEquipment = getPrimaryEquipment(widget, equipment, equipmentById);
-  const selectedSensors = resolveSensorsForWidget(widget.dataKey, widgetEquipment, equipmentById);
+  const selectedSensors = resolveSensorsForWidget(widget, widgetEquipment, equipmentById);
   const targetSensor = selectedSensors[0];
   const val = targetSensor?.value ?? 0;
   const unit = targetSensor?.unit ?? "";
@@ -113,9 +128,11 @@ export function WidgetRenderer({ widget, equipment, equipmentById, alerts }: Pro
 
   switch (widget.type) {
     case "OEE":
+      if (!widgetEquipment) return <EmptyWidgetState />;
       return <OEEContent data={widgetEquipment} />;
 
     case "SENSORS":
+      if (!widgetEquipment) return <EmptyWidgetState />;
       if (widgetEquipment.sensors.length === 0) return <EmptyWidgetState />;
       return <SensorGridContent sensors={widgetEquipment.sensors} />;
 
@@ -138,6 +155,7 @@ export function WidgetRenderer({ widget, equipment, equipmentById, alerts }: Pro
       );
 
     case "DONUT":
+      if (!widgetEquipment) return <EmptyWidgetState />;
       if (widgetEquipment.sensors.length === 0) return <EmptyWidgetState />;
       return (
         <DonutChartWidget

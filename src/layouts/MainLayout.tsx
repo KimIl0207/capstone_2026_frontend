@@ -7,8 +7,7 @@ import { useEquipmentWebSocket } from "../hooks/useEquipmentWebSocket";
 import { getAccessToken, isAdmin, logout } from "../utils/Auth";
 
 import DashboardModals from "../components/dashboard/DashboardModals";
-import { ALERTS_DATA, MOCK_DATA } from "../components/mocks/dashboardMockData";
-import { initialLayouts } from "../utils/initialLayouts";
+import { ALERTS_DATA } from "../components/mocks/dashboardMockData";
 
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
@@ -91,8 +90,6 @@ export default function MainLayout() {
   const canEditDashboard = isAdmin();
 
   const dashboardState = useDashboardState({
-    mockData: MOCK_DATA,
-    initialLayouts,
     alertsData: ALERTS_DATA,
   });
 
@@ -100,6 +97,7 @@ export default function MainLayout() {
     autoArrange,
     time,
     equipment,
+    layouts,
     setEquipment,
     setIsModalOpen,
     setIsEqModalOpen,
@@ -112,7 +110,7 @@ export default function MainLayout() {
     dashboardSaveError,
   } = dashboardState;
 
-  useEquipmentWebSocket(setEquipment);
+  useEquipmentWebSocket(setEquipment, layouts);
 
   const clearInactivityTimers = useCallback(() => {
     if (inactivityWarningTimer.current !== null) {
