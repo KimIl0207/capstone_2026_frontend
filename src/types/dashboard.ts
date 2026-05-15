@@ -12,6 +12,7 @@ export type DashboardWidgetType =
 
 export interface DashboardItem {
   i: string;
+  serverWidgetId?: number;
   x: number;
   y: number;
   w: number;

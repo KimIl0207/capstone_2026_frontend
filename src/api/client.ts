@@ -118,6 +118,36 @@ export type WidgetResponseDto = {
   updatedAt?: string;
 };
 
+export type WidgetRequestDto = {
+  dashboardId?: number;
+  equipmentId?: string;
+  equipmentEntityId?: number;
+  widgetType: string;
+  title: string;
+  sensorId?: string;
+  sensorEntityId?: number;
+  chartType?: string;
+  dataType?: string;
+  unit?: string;
+  posX: number;
+  posY: number;
+  width: number;
+  height: number;
+  configJson?: string;
+};
+
+export type WidgetLayoutItem = {
+  widgetId: number;
+  posX: number;
+  posY: number;
+  width: number;
+  height: number;
+};
+
+export type WidgetLayoutUpdateDto = {
+  layouts: WidgetLayoutItem[];
+};
+
 function buildHeaders(options: RequestOptions): Headers {
   const headers = new Headers(options.headers);
 
@@ -218,6 +248,22 @@ export function getEquipmentWidgets(equipmentId: number | string, accessToken?: 
 
 export function getDashboardWidgetsByEquipment(equipmentId: number | string, accessToken?: string) {
   return apiClient.get<ApiResponse<WidgetResponseDto[]>>(`/api/dashboard/widgets/equipment/${equipmentId}`, { accessToken });
+}
+
+export function createDashboardWidget(body: WidgetRequestDto, accessToken?: string) {
+  return apiClient.post<ApiResponse<WidgetResponseDto>>("/api/dashboard/widgets", body, { accessToken });
+}
+
+export function updateDashboardWidget(widgetId: number | string, body: WidgetRequestDto, accessToken?: string) {
+  return apiClient.put<ApiResponse<WidgetResponseDto>>(`/api/dashboard/widgets/${widgetId}`, body, { accessToken });
+}
+
+export function deleteDashboardWidget(widgetId: number | string, accessToken?: string) {
+  return apiClient.delete<ApiResponse<void>>(`/api/dashboard/widgets/${widgetId}`, { accessToken });
+}
+
+export function updateWidgetLayouts(body: WidgetLayoutUpdateDto, accessToken?: string) {
+  return apiClient.put<ApiResponse<WidgetResponseDto[]>>("/api/dashboard/widgets/layout", body, { accessToken });
 }
 
 export function getDashboardEquipment(dashboardId: number | string, accessToken?: string) {

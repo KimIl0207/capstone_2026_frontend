@@ -98,6 +98,11 @@ export default function MainLayout() {
     setIsEqModalOpen,
     setAutoArrange,
     arrangeWidgets,
+    saveDashboardState,
+    isDashboardDirty,
+    isSavingDashboard,
+    lastDashboardSavedAt,
+    dashboardSaveError,
   } = dashboardState;
 
   useEquipmentWebSocket(setEquipment);
@@ -264,6 +269,39 @@ export default function MainLayout() {
               >
                 지금 정렬
               </button>
+              <button
+                type="button"
+                onClick={() => void saveDashboardState()}
+                disabled={isSavingDashboard}
+                className={[
+                  "rounded-lg px-4 py-2 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-60",
+                  isDashboardDirty
+                    ? "bg-amber-500 text-slate-950 hover:bg-amber-400"
+                    : "bg-slate-800 text-slate-300 hover:bg-slate-700",
+                ].join(" ")}
+                title={dashboardSaveError ?? undefined}
+              >
+                {isSavingDashboard ? "Saving..." : "Save"}
+              </button>
+              <span
+                className={[
+                  "hidden text-[10px] font-semibold md:inline",
+                  dashboardSaveError
+                    ? "text-rose-400"
+                    : isDashboardDirty
+                      ? "text-amber-300"
+                      : "text-slate-500",
+                ].join(" ")}
+                title={dashboardSaveError ?? undefined}
+              >
+                {dashboardSaveError
+                  ? "Save failed"
+                  : isDashboardDirty
+                    ? "Unsaved"
+                    : lastDashboardSavedAt
+                      ? `Saved ${lastDashboardSavedAt.toLocaleTimeString()}`
+                      : "Saved locally"}
+              </span>
             </div>
           )}
         </header>

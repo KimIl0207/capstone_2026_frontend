@@ -1,5 +1,14 @@
 ﻿import { useCallback, useEffect, useState, useRef, type Dispatch, type SetStateAction } from "react";
-import { getEquipmentCurrent, getMyEquipmentCurrent, searchEquipmentSensors, searchMyEquipment } from "../api/client";
+import {
+  createDashboardWidget,
+  deleteDashboardWidget,
+  getEquipmentCurrent,
+  getMyEquipmentCurrent,
+  searchEquipmentSensors,
+  searchMyEquipment,
+  updateWidgetLayouts,
+  type WidgetRequestDto,
+} from "../api/client";
 import { getUserId } from "../utils/Auth";
 import type { EquipmentCurrentResponse, EquipmentResponse, SensorResponse } from "../api/client";
 import type { UniversalEquipment } from "../types/equipment";
@@ -14,6 +23,7 @@ import type { Layout, ResponsiveLayouts } from "react-grid-layout";
 
 const DASHBOARD_LAYOUT_STORAGE_KEY = "myFoundryDashboard";
 const getDashboardLayoutStorageKey = (userId: string | number) => `${DASHBOARD_LAYOUT_STORAGE_KEY}:${userId}`;
+const DASHBOARD_AUTOSAVE_INTERVAL_MS = 30000;
 export type DashboardBreakpoint = "lg" | "md" | "sm";
 export type DashboardLayouts = Partial<Record<DashboardBreakpoint, DashboardItem[]>>;
 
@@ -87,6 +97,46 @@ const normalizeStoredLayouts = (
 
 const getBaseLayout = (layouts: DashboardLayouts, fallback: DashboardLayouts) => {
   return layouts.lg ?? fallback.lg ?? [];
+};
+
+const getServerWidgetId = (widget: DashboardItem) => {
+  if (typeof widget.serverWidgetId === "number") return widget.serverWidgetId;
+
+  const numericId = Number(widget.i);
+  return Number.isInteger(numericId) && numericId > 0 ? numericId : null;
+};
+
+const toWidgetRequest = (widget: DashboardItem): WidgetRequestDto => ({
+  widgetType: widget.type,
+  title: widget.title,
+  posX: widget.x,
+  posY: Number.isFinite(widget.y) ? widget.y : 0,
+  width: widget.w,
+  height: widget.h,
+  configJson: JSON.stringify({
+    dataKey: widget.dataKey,
+    color: widget.color,
+    pinned: widget.pinned ?? false,
+  }),
+});
+
+const attachServerWidgetIds = (
+  layouts: DashboardLayouts,
+  serverWidgetIds: Map<string, number>,
+): DashboardLayouts => {
+  const next: DashboardLayouts = {};
+
+  DASHBOARD_BREAKPOINT_KEYS.forEach((breakpoint) => {
+    const items = layouts[breakpoint];
+    if (!items) return;
+
+    next[breakpoint] = items.map((widget) => {
+      const serverWidgetId = serverWidgetIds.get(widget.i);
+      return serverWidgetId ? { ...widget, serverWidgetId } : widget;
+    });
+  });
+
+  return { ...layouts, ...next };
 };
 
 const mergeLayoutMetadata = (
@@ -238,7 +288,12 @@ export function useDashboardState({
   const [loadingSensorEquipmentId, setLoadingSensorEquipmentId] = useState<string | null>(null);
 
   const [autoArrange, setAutoArrange] = useState(true);
+  const [isDashboardDirty, setIsDashboardDirty] = useState(false);
+  const [isSavingDashboard, setIsSavingDashboard] = useState(false);
+  const [lastDashboardSavedAt, setLastDashboardSavedAt] = useState<Date | null>(null);
+  const [dashboardSaveError, setDashboardSaveError] = useState<string | null>(null);
   const skipNextLayoutChange = useRef(false);
+  const pendingDeletedWidgetIds = useRef<Set<number>>(new Set());
 
   const upsertEquipmentMaster = useCallback((nextEquipment: UniversalEquipment) => {
     const nextMaster = mapEquipmentToMaster(nextEquipment);
@@ -313,6 +368,88 @@ export function useDashboardState({
     }
   }, [dashboardLayoutStorageKey, layouts.length, responsiveLayouts]);
 
+  const saveDashboardState = useCallback(async () => {
+    setIsSavingDashboard(true);
+    setDashboardSaveError(null);
+
+    try {
+      const deletedWidgetIds = Array.from(pendingDeletedWidgetIds.current);
+
+      for (const widgetId of deletedWidgetIds) {
+        await deleteDashboardWidget(widgetId);
+      }
+
+      let layoutsForSave = getBaseLayout(responsiveLayouts, initialLayouts);
+      const createdWidgetIds = new Map<string, number>();
+
+      for (const widget of layoutsForSave) {
+        if (getServerWidgetId(widget)) continue;
+
+        const response = await createDashboardWidget(toWidgetRequest(widget));
+        const serverWidgetId = response.data?.id;
+
+        if (!serverWidgetId) {
+          throw new Error(`위젯 "${widget.title}" 생성 응답에 ID가 없습니다.`);
+        }
+
+        createdWidgetIds.set(widget.i, serverWidgetId);
+      }
+
+      if (createdWidgetIds.size > 0) {
+        setResponsiveLayouts((prev) => attachServerWidgetIds(prev, createdWidgetIds));
+        layoutsForSave = layoutsForSave.map((widget) => {
+          const serverWidgetId = createdWidgetIds.get(widget.i);
+          return serverWidgetId ? { ...widget, serverWidgetId } : widget;
+        });
+      }
+
+      const layoutItems = layoutsForSave
+        .map((widget) => {
+          const widgetId = getServerWidgetId(widget);
+
+          if (!widgetId) return null;
+
+          return {
+            widgetId,
+            posX: widget.x,
+            posY: Number.isFinite(widget.y) ? widget.y : 0,
+            width: widget.w,
+            height: widget.h,
+          };
+        })
+        .filter((item): item is NonNullable<typeof item> => item !== null);
+
+      if (layoutItems.length === 0) {
+        deletedWidgetIds.forEach((widgetId) => pendingDeletedWidgetIds.current.delete(widgetId));
+        setIsDashboardDirty(false);
+        setLastDashboardSavedAt(new Date());
+        return true;
+      }
+
+      await updateWidgetLayouts({ layouts: layoutItems });
+      deletedWidgetIds.forEach((widgetId) => pendingDeletedWidgetIds.current.delete(widgetId));
+      setIsDashboardDirty(false);
+      setLastDashboardSavedAt(new Date());
+      return true;
+    } catch (error) {
+      console.error("[Dashboard Save] Failed to save widget layout", error);
+      setDashboardSaveError(error instanceof Error ? error.message : "대시보드 저장에 실패했습니다.");
+      return false;
+    } finally {
+      setIsSavingDashboard(false);
+    }
+  }, [initialLayouts, responsiveLayouts]);
+
+  useEffect(() => {
+    if (!isDashboardDirty || isSavingDashboard) return;
+
+    const timer = window.setTimeout(() => {
+      void saveDashboardState();
+    }, DASHBOARD_AUTOSAVE_INTERVAL_MS);
+
+    return () => window.clearTimeout(timer);
+  }, [isDashboardDirty, isSavingDashboard, saveDashboardState]);
+
   const compactWidgets = (items: DashboardItem[], cols = 12) => {
     const pinned = items.filter(item => item.pinned);
     const movable = items.filter(item => !item.pinned);
@@ -368,6 +505,7 @@ export function useDashboardState({
       breakpoint: DashboardBreakpoint,
     ) => DashboardItem[],
   ) => {
+    setIsDashboardDirty(true);
     setResponsiveLayouts((prev) => {
       const base = getBaseLayout(prev, initialLayouts);
       const next: DashboardLayouts = {};
@@ -383,6 +521,7 @@ export function useDashboardState({
   const setLayouts = (
     value: DashboardItem[] | ((previous: DashboardItem[]) => DashboardItem[]),
   ) => {
+    setIsDashboardDirty(true);
     setResponsiveLayouts((prev) => {
       const previous = getBaseLayout(prev, initialLayouts);
       const nextLg = typeof value === "function" ? value(previous) : value;
@@ -391,6 +530,13 @@ export function useDashboardState({
   };
 
   const removeWidget = (widgetId: string) => {
+    const widget = layouts.find((item) => item.i === widgetId);
+    const serverWidgetId = widget ? getServerWidgetId(widget) : null;
+
+    if (serverWidgetId) {
+      pendingDeletedWidgetIds.current.add(serverWidgetId);
+    }
+
     updateLayouts((items, breakpoint) => {
       const next = items.filter((item) => item.i !== widgetId);
       return autoArrange ? compactWidgets(next, DASHBOARD_COLS[breakpoint]) : next;
@@ -402,6 +548,7 @@ export function useDashboardState({
     shouldCompact = false,
     breakpoint: DashboardBreakpoint = currentBreakpoint,
   ) => {
+    setIsDashboardDirty(true);
     setResponsiveLayouts((prev) => {
       const base = getBaseLayout(prev, initialLayouts);
       const source = prev[breakpoint] ?? base;
@@ -426,6 +573,7 @@ export function useDashboardState({
     }
 
     if (allLayouts) {
+      setIsDashboardDirty(true);
       setResponsiveLayouts((prev) => {
         const base = getBaseLayout(prev, initialLayouts);
         const next: DashboardLayouts = { ...prev };
@@ -652,7 +800,11 @@ export function useDashboardState({
     isModalOpen,
     isEqModalOpen,
     isNetworkScanning,
+    isDashboardDirty,
+    isSavingDashboard,
     loadingSensorEquipmentId,
+    lastDashboardSavedAt,
+    dashboardSaveError,
     newWidgetConfig,
     builderStep,
     selectedDataCart,
@@ -672,6 +824,7 @@ export function useDashboardState({
     setCurrentBreakpoint,
 
     handleLayoutChange,
+    saveDashboardState,
     removeWidget,
     resetWidgetBuilder,
     addSelectedSensorToCart,
