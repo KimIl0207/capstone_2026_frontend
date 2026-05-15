@@ -24,6 +24,8 @@ type GatewayPayload = {
   sensors: GatewaySensor[];
 };
 
+type PayloadObject = Record<string, unknown>;
+
 function getSensorStatus(payloadStatus?: string): SensorData["status"] {
   return payloadStatus === "ERROR" ? "CRITICAL" : "NORMAL";
 }
@@ -57,6 +59,45 @@ function isGatewayPayload(value: unknown): value is GatewayPayload {
   return (
     Array.isArray(payload.sensors)
   );
+}
+
+function firstObject(value: unknown): unknown {
+  return Array.isArray(value) ? value.find((item) => item && typeof item === "object") : value;
+}
+
+function unwrapGatewayPayload(value: unknown): GatewayPayload | null {
+  const payload = firstObject(value);
+
+  if (isGatewayPayload(payload)) {
+    return payload;
+  }
+
+  if (!payload || typeof payload !== "object") {
+    return null;
+  }
+
+  const objectPayload = payload as PayloadObject;
+  const nestedCandidates = [
+    objectPayload.data,
+    objectPayload.payload,
+    objectPayload.current,
+    objectPayload.message,
+    objectPayload.body,
+  ];
+
+  for (const candidate of nestedCandidates) {
+    const unwrapped = unwrapGatewayPayload(candidate);
+    if (unwrapped) return unwrapped;
+  }
+
+  if (Array.isArray(objectPayload.widgets)) {
+    for (const widget of objectPayload.widgets) {
+      const unwrapped = unwrapGatewayPayload(widget);
+      if (unwrapped) return unwrapped;
+    }
+  }
+
+  return null;
 }
 
 function mapGatewayToDashboard(
@@ -101,11 +142,12 @@ export function useEquipmentWebSocket(
 ) {
   useEffect(() => {
     const { unsubscribe } = subscribeToEquipmentGateway<GatewayPayload>((message) => {
-      const payload = message.body;
+      const payload = unwrapGatewayPayload(message.body);
 
-      if (!isGatewayPayload(payload)) {
-        console.error("[Equipment WebSocket] Invalid gateway payload", {
-          body: payload,
+      if (!payload) {
+        console.debug("[Equipment WebSocket] Ignored non-sensor payload", {
+          body: message.body,
+          rawBody: message.rawBody,
           parseError: message.parseError,
         });
         return;

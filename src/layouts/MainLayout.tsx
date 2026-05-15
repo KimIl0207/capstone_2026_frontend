@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { logoutSession } from "../api/client";
 import { useDashboardState } from "../hooks/useDashboardState";
@@ -12,6 +12,9 @@ import { initialLayouts } from "../utils/initialLayouts";
 
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
+
+const INACTIVITY_WARNING_MS = 30 * 60 * 1000;
+const INACTIVITY_LOGOUT_GRACE_MS = 60 * 1000;
 
 const navItems = [
   {
@@ -81,6 +84,8 @@ function SidebarItem({
 export default function MainLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const inactivityWarningTimer = useRef<number | null>(null);
+  const inactivityLogoutTimer = useRef<number | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
   const canEditDashboard = isAdmin();
@@ -109,7 +114,19 @@ export default function MainLayout() {
 
   useEquipmentWebSocket(setEquipment);
 
-  const handleLogout = async () => {
+  const clearInactivityTimers = useCallback(() => {
+    if (inactivityWarningTimer.current !== null) {
+      window.clearTimeout(inactivityWarningTimer.current);
+      inactivityWarningTimer.current = null;
+    }
+
+    if (inactivityLogoutTimer.current !== null) {
+      window.clearTimeout(inactivityLogoutTimer.current);
+      inactivityLogoutTimer.current = null;
+    }
+  }, []);
+
+  const handleLogout = useCallback(async () => {
     const accessToken = getAccessToken();
 
     try {
@@ -122,7 +139,41 @@ export default function MainLayout() {
       logout();
       navigate("/login", { replace: true });
     }
-  };
+  }, [navigate]);
+
+  useEffect(() => {
+    const activityEvents = [
+      "mousedown",
+      "mousemove",
+      "keydown",
+      "scroll",
+      "touchstart",
+      "click",
+    ] as const;
+
+    const resetInactivityTimers = () => {
+      clearInactivityTimers();
+
+      inactivityWarningTimer.current = window.setTimeout(() => {
+        alert("장시간 활동이 없어 1분 후 자동 로그아웃됩니다.");
+        inactivityLogoutTimer.current = window.setTimeout(() => {
+          void handleLogout();
+        }, INACTIVITY_LOGOUT_GRACE_MS);
+      }, INACTIVITY_WARNING_MS);
+    };
+
+    resetInactivityTimers();
+    activityEvents.forEach((eventName) => {
+      window.addEventListener(eventName, resetInactivityTimers, { passive: true });
+    });
+
+    return () => {
+      clearInactivityTimers();
+      activityEvents.forEach((eventName) => {
+        window.removeEventListener(eventName, resetInactivityTimers);
+      });
+    };
+  }, [clearInactivityTimers, handleLogout]);
 
   const pageTitle = useMemo(() => {
     const current = navItems.find((item) => location.pathname.startsWith(item.to));
