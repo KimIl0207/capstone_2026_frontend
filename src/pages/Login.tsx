@@ -20,14 +20,14 @@ type LoginProps = {
 
 type AuthMode = "login" | "signup";
 
-const usernamePattern = /^[a-z]+$/;
+const usernamePattern = /^(?=.*[a-z])[a-z_]+$/;
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const passwordPattern = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9\s]).+$/;
 const fullNamePattern = /^[A-Za-z가-힣][A-Za-z가-힣\s.'-]{1,49}$/;
 
 function validateSignup(payload: SignupPayload): string | null {
   if (!usernamePattern.test(payload.username)) {
-    return "Username must contain lowercase English letters only.";
+    return "Username must contain lowercase English letters or underscores.";
   }
 
   if (!emailPattern.test(payload.email)) {
