@@ -16,6 +16,7 @@ export type ApiResponse<T> = {
 type RequestOptions = Omit<RequestInit, "body"> & {
   body?: unknown;
   accessToken?: string;
+  skipAuth?: boolean;
 };
 
 export type LoginRequest = {
@@ -56,8 +57,17 @@ export type DashboardResponse = {
   dashboardName: string;
   description?: string;
   userId: number;
+  isPublic?: boolean;
+  shareToken?: string | null;
   createdAt?: string;
   updatedAt?: string;
+};
+
+export type DashboardShareResponse = {
+  dashboardId: number;
+  dashboardName: string;
+  isPublic: boolean;
+  shareToken: string | null;
 };
 
 export type EquipmentResponse = {
@@ -127,6 +137,17 @@ export type EquipmentCurrentResponse = {
   current?: SensorDataPayload;
 };
 
+export type PublicDashboardResponse = DashboardResponse & {
+  dashboard?: DashboardResponse;
+  widgets?: WidgetResponseDto[];
+  dashboardWidgets?: WidgetResponseDto[];
+  equipment?: EquipmentCurrentResponse[];
+  equipments?: EquipmentCurrentResponse[];
+  currentEquipment?: EquipmentCurrentResponse[];
+  equipmentCurrent?: EquipmentCurrentResponse[];
+  currentData?: EquipmentCurrentResponse[];
+};
+
 export type WidgetResponseDto = {
   id: number;
   userId: number;
@@ -189,7 +210,7 @@ function buildHeaders(options: RequestOptions): Headers {
     headers.set("Content-Type", "application/json");
   }
 
-  const accessToken = options.accessToken ?? getAccessToken();
+  const accessToken = options.skipAuth ? undefined : options.accessToken ?? getAccessToken();
 
   if (accessToken && !headers.has("Authorization")) {
     headers.set("Authorization", `Bearer ${accessToken}`);
@@ -199,7 +220,7 @@ function buildHeaders(options: RequestOptions): Headers {
 }
 
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { body, accessToken: _accessToken, ...fetchOptions } = options;
+  const { body, accessToken: _accessToken, skipAuth: _skipAuth, ...fetchOptions } = options;
   const url = new URL(path, API_BASE_URL);
 
   try {
@@ -273,6 +294,25 @@ export function getMyDashboards(accessToken?: string) {
 
 export function getDashboard(dashboardId: number | string, accessToken?: string) {
   return apiClient.get<ApiResponse<DashboardResponse>>(`/api/dashboards/${dashboardId}`, { accessToken });
+}
+
+export function enableDashboardShare(dashboardId: number | string, accessToken?: string) {
+  return apiClient.post<ApiResponse<DashboardShareResponse>>(`/api/dashboards/${dashboardId}/share/enable`, undefined, {
+    accessToken,
+  });
+}
+
+export function disableDashboardShare(dashboardId: number | string, accessToken?: string) {
+  return apiClient.post<ApiResponse<DashboardShareResponse>>(`/api/dashboards/${dashboardId}/share/disable`, undefined, {
+    accessToken,
+  });
+}
+
+export function getPublicDashboard(shareToken: string) {
+  const params = new URLSearchParams({ token: shareToken });
+  return apiClient.get<ApiResponse<PublicDashboardResponse>>(`/api/public/dashboards?${params.toString()}`, {
+    skipAuth: true,
+  });
 }
 
 export function getDashboardWidgets(dashboardId: number | string, accessToken?: string) {

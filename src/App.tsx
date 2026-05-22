@@ -5,6 +5,7 @@ import WebSocketTest from "./components/WebSocketTest";
 import MainLayout from "./layouts/MainLayout";
 import DashboardPage from "./pages/DashboardPage";
 import Login from "./pages/Login";
+import PublicDashboardPage from "./pages/PublicDashboardPage";
 import SettingsPage from "./pages/SettingsPage";
 import StatsPage from "./pages/StatsPage";
 import ProtectedRoute from "./routes/ProtectedRoute";
@@ -45,6 +46,8 @@ function LoginPageWrapper() {
 export default function App() {
   return (
     <Routes>
+      <Route path="/public/dashboards" element={<PublicDashboardPage />} />
+
       <Route element={<PublicRoute />}>
         <Route path="/login" element={<LoginPageWrapper />} />
       </Route>

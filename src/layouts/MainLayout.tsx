@@ -161,7 +161,7 @@ export default function MainLayout() {
           throw new Error(response.message ?? "Failed to verify session.");
         }
 
-        setCanEditDashboard(response.data.role?.toLowerCase() === "admin");
+        setCanEditDashboard(true);
         setIsAuthVerified(true);
       })
       .catch((error) => {

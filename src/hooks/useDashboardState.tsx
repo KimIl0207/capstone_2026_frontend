@@ -3,6 +3,8 @@ import {
   applyEquipmentDiscovery,
   createDashboardWidget,
   deleteDashboardWidget,
+  disableDashboardShare,
+  enableDashboardShare,
   getDashboardEquipment,
   getEquipmentCurrent,
   getMyDashboards,
@@ -108,7 +110,7 @@ const parseWidgetConfig = (configJson?: string) => {
   }
 };
 
-const mapWidgetResponseToDashboardItem = (widget: WidgetResponseDto): DashboardItem => {
+export const mapWidgetResponseToDashboardItem = (widget: WidgetResponseDto): DashboardItem => {
   const config = parseWidgetConfig(widget.configJson);
   const type = isDashboardWidgetType(widget.widgetType) ? widget.widgetType : "GAUGE";
   const configDataKey = config.dataKey;
@@ -296,7 +298,7 @@ const mergeSensorData = (
   return Array.from(sensorByKey.values());
 };
 
-const mapCurrentResponseToEquipment = (
+export const mapCurrentResponseToEquipment = (
   response: EquipmentCurrentResponse,
   fallback: UniversalEquipment,
 ): UniversalEquipment => {
@@ -347,6 +349,9 @@ export function useDashboardState({
   const [alerts] = useState(alertsData);
   const [time, setTime] = useState(new Date());
   const [dashboardId, setDashboardId] = useState<number | null>(null);
+  const [dashboardName, setDashboardName] = useState("");
+  const [isDashboardPublic, setIsDashboardPublic] = useState(false);
+  const [dashboardShareToken, setDashboardShareToken] = useState<string | null>(null);
   const [isLoadingDashboardWidgets, setIsLoadingDashboardWidgets] = useState(false);
 
   const [responsiveLayouts, setResponsiveLayouts] = useState<DashboardLayouts>({ lg: [] });
@@ -442,6 +447,9 @@ export function useDashboardState({
       }
 
       setDashboardId(dashboard.dashboardId);
+      setDashboardName(dashboard.dashboardName);
+      setIsDashboardPublic(Boolean(dashboard.isPublic));
+      setDashboardShareToken(dashboard.shareToken ?? null);
 
       const widgetsResponse = await getMyWidgets();
       const widgets = widgetsResponse.data ?? [];
@@ -533,6 +541,42 @@ export function useDashboardState({
       setIsSavingDashboard(false);
     }
   }, [responsiveLayouts]);
+
+  const enableShareLink = useCallback(async () => {
+    if (!dashboardId) {
+      throw new Error("대시보드를 불러온 뒤 공유 링크를 활성화할 수 있습니다.");
+    }
+
+    const response = await enableDashboardShare(dashboardId);
+
+    if (!response.success || !response.data) {
+      throw new Error(response.message ?? "공유 링크 활성화에 실패했습니다.");
+    }
+
+    setDashboardName(response.data.dashboardName);
+    setIsDashboardPublic(response.data.isPublic);
+    setDashboardShareToken(response.data.shareToken);
+
+    return response.data;
+  }, [dashboardId]);
+
+  const disableShareLink = useCallback(async () => {
+    if (!dashboardId) {
+      throw new Error("대시보드를 불러온 뒤 공유 링크를 비활성화할 수 있습니다.");
+    }
+
+    const response = await disableDashboardShare(dashboardId);
+
+    if (!response.success || !response.data) {
+      throw new Error(response.message ?? "공유 링크 비활성화에 실패했습니다.");
+    }
+
+    setDashboardName(response.data.dashboardName);
+    setIsDashboardPublic(response.data.isPublic);
+    setDashboardShareToken(response.data.shareToken);
+
+    return response.data;
+  }, [dashboardId]);
 
   useEffect(() => {
     if (!isDashboardDirty || isSavingDashboard) return;
@@ -1055,6 +1099,9 @@ export function useDashboardState({
     autoArrange,
     time,
     dashboardId,
+    dashboardName,
+    isDashboardPublic,
+    dashboardShareToken,
     equipment,
     equipmentById,
     layouts,
@@ -1089,6 +1136,8 @@ export function useDashboardState({
 
     handleLayoutChange,
     saveDashboardState,
+    enableShareLink,
+    disableShareLink,
     removeWidget,
     resetWidgetBuilder,
     addSelectedSensorToCart,
