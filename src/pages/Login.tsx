@@ -3,7 +3,6 @@ import React, { useState } from "react";
 type LoginPayload = {
   id: string;
   password: string;
-  rememberMe: boolean;
 };
 
 type SignupPayload = {
@@ -20,14 +19,14 @@ type LoginProps = {
 
 type AuthMode = "login" | "signup";
 
-const usernamePattern = /^(?=.*[a-z])[a-z_]+$/;
+const usernamePattern = /^(?=.*[a-z])[a-z0-9_]+$/;
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const passwordPattern = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9\s]).+$/;
 const fullNamePattern = /^[A-Za-z가-힣][A-Za-z가-힣\s.'-]{1,49}$/;
 
 function validateSignup(payload: SignupPayload): string | null {
   if (!usernamePattern.test(payload.username)) {
-    return "Username must contain lowercase English letters or underscores.";
+    return "Username must contain lowercase English letters, numbers, or underscores.";
   }
 
   if (!emailPattern.test(payload.email)) {
@@ -51,7 +50,6 @@ export default function Login({ onLogin, onSignup }: LoginProps) {
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
   const [password, setPassword] = useState("");
-  const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -107,7 +105,6 @@ export default function Login({ onLogin, onSignup }: LoginProps) {
       await onLogin?.({
         id: username,
         password,
-        rememberMe,
       });
     } finally {
       setIsSubmitting(false);
@@ -270,20 +267,6 @@ export default function Login({ onLogin, onSignup }: LoginProps) {
                 </button>
               </div>
             </div>
-
-            {!isSignup ? (
-              <div className="flex items-center justify-between gap-4">
-                <label className="flex cursor-pointer select-none items-center gap-3 text-sm text-slate-400">
-                  <input
-                    type="checkbox"
-                    checked={rememberMe}
-                    onChange={(event) => setRememberMe(event.target.checked)}
-                    className="h-4 w-4 rounded border-slate-600 bg-slate-900 text-indigo-500 focus:ring-indigo-500"
-                  />
-                  Remember me
-                </label>
-              </div>
-            ) : null}
 
             <button
               type="submit"

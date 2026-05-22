@@ -1,10 +1,10 @@
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { logoutSession } from "../api/client";
+import { getMe, logoutSession } from "../api/client";
 import { useDashboardState } from "../hooks/useDashboardState";
 import { useEquipmentWebSocket } from "../hooks/useEquipmentWebSocket";
-import { getAccessToken, isAdmin, logout } from "../utils/Auth";
+import { getAccessToken, logout } from "../utils/Auth";
 
 import DashboardModals from "../components/dashboard/DashboardModals";
 import { ALERTS_DATA } from "../components/mocks/dashboardMockData";
@@ -85,9 +85,10 @@ export default function MainLayout() {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const inactivityWarningTimer = useRef<number | null>(null);
   const inactivityLogoutTimer = useRef<number | null>(null);
+  const [canEditDashboard, setCanEditDashboard] = useState(false);
+  const [isAuthVerified, setIsAuthVerified] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const canEditDashboard = isAdmin();
 
   const dashboardState = useDashboardState({
     alertsData: ALERTS_DATA,
@@ -140,6 +141,45 @@ export default function MainLayout() {
   }, [navigate]);
 
   useEffect(() => {
+    let isActive = true;
+    const accessToken = getAccessToken();
+
+    if (!accessToken) {
+      logout();
+      navigate("/login", { replace: true });
+      return undefined;
+    }
+
+    setIsAuthVerified(false);
+    getMe(accessToken)
+      .then((response) => {
+        if (!isActive) {
+          return;
+        }
+
+        if (!response.success || !response.data) {
+          throw new Error(response.message ?? "Failed to verify session.");
+        }
+
+        setCanEditDashboard(response.data.role?.toLowerCase() === "admin");
+        setIsAuthVerified(true);
+      })
+      .catch((error) => {
+        if (!isActive) {
+          return;
+        }
+
+        console.error("[Auth] Session verification failed", error);
+        logout();
+        navigate("/login", { replace: true });
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [navigate]);
+
+  useEffect(() => {
     const activityEvents = [
       "mousedown",
       "mousemove",
@@ -177,6 +217,14 @@ export default function MainLayout() {
     const current = navItems.find((item) => location.pathname.startsWith(item.to));
     return current?.label ?? "대시보드";
   }, [location.pathname]);
+
+  if (!isAuthVerified) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#0B0F1A] text-sm font-semibold text-slate-300">
+        Verifying session...
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-[#0B0F1A] text-slate-200">
