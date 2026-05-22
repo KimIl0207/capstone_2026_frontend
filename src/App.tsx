@@ -1,6 +1,6 @@
 import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 
-import { loginWithPassword } from "./api/client";
+import { loginWithPassword, signup } from "./api/client";
 import WebSocketTest from "./components/WebSocketTest";
 import MainLayout from "./layouts/MainLayout";
 import DashboardPage from "./pages/DashboardPage";
@@ -21,14 +21,21 @@ function LoginPageWrapper() {
           const response = await loginWithPassword({ username: id, password });
 
           if (!response.success || !response.data) {
-            alert(response.message ?? "로그인에 실패했습니다.");
+            alert(response.message ?? "Login failed.");
             return;
           }
 
           loginWithToken(response.data);
           navigate("/dashboard", { replace: true });
         } catch (error) {
-          alert(error instanceof Error ? error.message : "로그인 중 오류가 발생했습니다.");
+          alert(error instanceof Error ? error.message : "An error occurred during login.");
+        }
+      }}
+      onSignup={async (payload) => {
+        const response = await signup(payload);
+
+        if (!response.success) {
+          throw new Error(response.message ?? "Sign up failed.");
         }
       }}
     />

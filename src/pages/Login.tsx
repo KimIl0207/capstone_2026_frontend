@@ -1,28 +1,111 @@
 import React, { useState } from "react";
 
-type LoginProps = {
-  onLogin?: (payload: { id: string; password: string; rememberMe: boolean }) => void | Promise<void>;
+type LoginPayload = {
+  id: string;
+  password: string;
+  rememberMe: boolean;
 };
 
-export default function Login({ onLogin }: LoginProps) {
+type SignupPayload = {
+  username: string;
+  email: string;
+  password: string;
+  fullName: string;
+};
+
+type LoginProps = {
+  onLogin?: (payload: LoginPayload) => void | Promise<void>;
+  onSignup?: (payload: SignupPayload) => void | Promise<void>;
+};
+
+type AuthMode = "login" | "signup";
+
+const usernamePattern = /^[a-z]+$/;
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const passwordPattern = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9\s]).+$/;
+const fullNamePattern = /^[A-Za-z가-힣][A-Za-z가-힣\s.'-]{1,49}$/;
+
+function validateSignup(payload: SignupPayload): string | null {
+  if (!usernamePattern.test(payload.username)) {
+    return "Username must contain lowercase English letters only.";
+  }
+
+  if (!emailPattern.test(payload.email)) {
+    return "Enter a valid email address.";
+  }
+
+  if (!passwordPattern.test(payload.password)) {
+    return "Password must include letters, numbers, and a special character.";
+  }
+
+  if (!fullNamePattern.test(payload.fullName) || !/[A-Za-z가-힣]{2,}/.test(payload.fullName.replace(/[\s.'-]/g, ""))) {
+    return "Full name must be a valid Korean or English name.";
+  }
+
+  return null;
+}
+
+export default function Login({ onLogin, onSignup }: LoginProps) {
+  const [mode, setMode] = useState<AuthMode>("login");
   const [id, setId] = useState("");
+  const [email, setEmail] = useState("");
+  const [fullName, setFullName] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const isSignup = mode === "signup";
+
+  const switchMode = (nextMode: AuthMode) => {
+    setMode(nextMode);
+    setPassword("");
+    setShowPassword(false);
+  };
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!id.trim() || !password.trim()) {
-      alert("아이디와 비밀번호를 입력해주세요.");
+    const username = id.trim();
+
+    if (isSignup) {
+      const payload = {
+        username,
+        email: email.trim(),
+        password,
+        fullName: fullName.trim(),
+      };
+      const validationError = validateSignup(payload);
+
+      if (validationError) {
+        alert(validationError);
+        return;
+      }
+
+      try {
+        setIsSubmitting(true);
+        await onSignup?.(payload);
+        alert("Account created. Please log in.");
+        setMode("login");
+        setEmail("");
+        setFullName("");
+        setPassword("");
+      } finally {
+        setIsSubmitting(false);
+      }
+
+      return;
+    }
+
+    if (!username || !password.trim()) {
+      alert("Enter your username and password.");
       return;
     }
 
     try {
       setIsSubmitting(true);
       await onLogin?.({
-        id: id.trim(),
+        id: username,
         password,
         rememberMe,
       });
@@ -53,10 +136,10 @@ export default function Login({ onLogin }: LoginProps) {
             <h1 className="text-4xl font-black leading-tight tracking-tight text-white">
               Unified Equipment
               <br />
-              Monitoring Login
+              Monitoring
             </h1>
             <p className="mt-5 max-w-md text-sm leading-7 text-slate-400">
-              실시간 장비 상태와 센서 데이터를 통합 대시보드에서 확인합니다.
+              Monitor equipment, sensors, and gateway data from a single dashboard.
             </p>
           </div>
 
@@ -84,16 +167,38 @@ export default function Login({ onLogin }: LoginProps) {
               </svg>
             </div>
             <div>
-              <div className="text-sm font-black uppercase tracking-tight text-white">로그인</div>
-              <div className="font-mono text-[10px] text-slate-500">보안 접속</div>
+              <div className="text-sm font-black uppercase tracking-tight text-white">Dashboard</div>
+              <div className="font-mono text-[10px] text-slate-500">Secure access</div>
             </div>
           </div>
 
           <div className="mb-8">
-            <h2 className="text-3xl font-black tracking-tight text-white">로그인</h2>
+            <h2 className="text-3xl font-black tracking-tight text-white">
+              {isSignup ? "Create account" : "Login"}
+            </h2>
             <p className="mt-2 text-sm text-slate-500">
-              백엔드 계정으로 대시보드에 접속합니다.
+              {isSignup ? "Register a dashboard account." : "Access your monitoring dashboard."}
             </p>
+          </div>
+
+          <div className="mb-6 grid grid-cols-2 rounded-2xl border border-slate-800 bg-slate-950/60 p-1">
+            {[
+              { label: "Login", value: "login" as const },
+              { label: "Sign up", value: "signup" as const },
+            ].map((item) => (
+              <button
+                key={item.value}
+                type="button"
+                onClick={() => switchMode(item.value)}
+                className={`h-10 rounded-xl text-sm font-bold transition-colors ${
+                  mode === item.value
+                    ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20"
+                    : "text-slate-500 hover:text-slate-200"
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
@@ -105,11 +210,43 @@ export default function Login({ onLogin }: LoginProps) {
                 type="text"
                 value={id}
                 onChange={(event) => setId(event.target.value)}
-                placeholder="사용자명을 입력하세요"
+                placeholder={isSignup ? "lowercase username" : "username"}
                 className="h-12 w-full rounded-2xl border border-slate-700/50 bg-slate-900/80 px-4 text-sm outline-none transition-all placeholder:text-slate-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                 autoComplete="username"
               />
             </div>
+
+            {isSignup ? (
+              <>
+                <div>
+                  <label className="mb-2 block text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    placeholder="name@example.com"
+                    className="h-12 w-full rounded-2xl border border-slate-700/50 bg-slate-900/80 px-4 text-sm outline-none transition-all placeholder:text-slate-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                    autoComplete="email"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                    Full name
+                  </label>
+                  <input
+                    type="text"
+                    value={fullName}
+                    onChange={(event) => setFullName(event.target.value)}
+                    placeholder="Full name"
+                    className="h-12 w-full rounded-2xl border border-slate-700/50 bg-slate-900/80 px-4 text-sm outline-none transition-all placeholder:text-slate-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                    autoComplete="name"
+                  />
+                </div>
+              </>
+            ) : null}
 
             <div>
               <label className="mb-2 block text-[10px] font-bold uppercase tracking-widest text-slate-500">
@@ -120,38 +257,40 @@ export default function Login({ onLogin }: LoginProps) {
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
-                  placeholder="비밀번호를 입력하세요"
+                  placeholder="password"
                   className="h-12 w-full rounded-2xl border border-slate-700/50 bg-slate-900/80 px-4 pr-16 text-sm outline-none transition-all placeholder:text-slate-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-                  autoComplete="current-password"
+                  autoComplete={isSignup ? "new-password" : "current-password"}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((prev) => !prev)}
                   className="absolute inset-y-0 right-0 px-4 text-xs font-bold text-slate-500 transition-colors hover:text-white"
                 >
-                  {showPassword ? "숨기기" : "보기"}
+                  {showPassword ? "Hide" : "Show"}
                 </button>
               </div>
             </div>
 
-            <div className="flex items-center justify-between gap-4">
-              <label className="flex cursor-pointer select-none items-center gap-3 text-sm text-slate-400">
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(event) => setRememberMe(event.target.checked)}
-                  className="h-4 w-4 rounded border-slate-600 bg-slate-900 text-indigo-500 focus:ring-indigo-500"
-                />
-                로그인 상태 유지
-              </label>
-            </div>
+            {!isSignup ? (
+              <div className="flex items-center justify-between gap-4">
+                <label className="flex cursor-pointer select-none items-center gap-3 text-sm text-slate-400">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(event) => setRememberMe(event.target.checked)}
+                    className="h-4 w-4 rounded border-slate-600 bg-slate-900 text-indigo-500 focus:ring-indigo-500"
+                  />
+                  Remember me
+                </label>
+              </div>
+            ) : null}
 
             <button
               type="submit"
               disabled={isSubmitting}
               className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-indigo-600 text-sm font-bold text-white shadow-lg shadow-indigo-500/20 transition-all hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400"
             >
-              {isSubmitting ? "로그인 중..." : "대시보드 로그인"}
+              {isSubmitting ? "Submitting..." : isSignup ? "Create account" : "Login"}
             </button>
           </form>
 

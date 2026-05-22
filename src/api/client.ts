@@ -23,6 +23,13 @@ export type LoginRequest = {
   password: string;
 };
 
+export type SignupRequest = {
+  username: string;
+  email: string;
+  password: string;
+  fullName: string;
+};
+
 export type LoginResponse = {
   accessToken: string;
   refreshToken: string;
@@ -242,6 +249,10 @@ export const apiClient = {
 
 export function loginWithPassword(body: LoginRequest) {
   return apiClient.post<ApiResponse<LoginResponse>>("/api/auth/login", body);
+}
+
+export function signup(body: SignupRequest) {
+  return apiClient.post<ApiResponse<UserInfoResponse>>("/api/auth/signup", body);
 }
 
 export function refreshAccessToken(refreshToken: string) {
