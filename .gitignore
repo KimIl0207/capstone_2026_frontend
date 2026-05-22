@@ -31,3 +31,5 @@ dist-ssr
 Dockerfile
 docker-compose.yml
 nginx.conf
+
+/data_generator
