@@ -315,6 +315,12 @@ export function getPublicDashboard(shareToken: string) {
   });
 }
 
+export function getPublicDashboardWidgets(dashboardId: number | string) {
+  return apiClient.get<ApiResponse<WidgetResponseDto[]>>(`/api/dashboards/${dashboardId}/widgets`, {
+    skipAuth: true,
+  });
+}
+
 export function getDashboardWidgets(dashboardId: number | string, accessToken?: string) {
   return apiClient.get<ApiResponse<WidgetResponseDto[]>>(`/api/dashboards/${dashboardId}/widgets`, { accessToken });
 }

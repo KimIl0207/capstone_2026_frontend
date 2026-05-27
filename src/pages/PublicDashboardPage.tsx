@@ -2,7 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Responsive, useContainerWidth } from "react-grid-layout";
 import { useSearchParams } from "react-router-dom";
 
-import { getPublicDashboard, type EquipmentCurrentResponse, type PublicDashboardResponse } from "../api/client";
+import {
+  getPublicDashboard,
+  getPublicDashboardWidgets,
+  type EquipmentCurrentResponse,
+  type PublicDashboardResponse,
+  type WidgetResponseDto,
+} from "../api/client";
 import { WidgetRenderer } from "../components/WidgetRenderer";
 import {
   DASHBOARD_BREAKPOINTS,
@@ -45,6 +51,10 @@ function getPublicDashboardName(data: PublicDashboardResponse) {
   return data.dashboard?.dashboardName ?? data.dashboardName ?? "Shared dashboard";
 }
 
+function getPublicDashboardId(data: PublicDashboardResponse) {
+  return data.dashboard?.dashboardId ?? data.dashboardId;
+}
+
 export default function PublicDashboardPage() {
   const [searchParams] = useSearchParams();
   const token = searchParams.get("token") ?? "";
@@ -55,6 +65,7 @@ export default function PublicDashboardPage() {
   const [dashboardName, setDashboardName] = useState("Shared dashboard");
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const [emptyMessage, setEmptyMessage] = useState("");
   const baseLayout = useMemo(() => layouts.lg ?? [], [layouts]);
 
   const loadPublicDashboard = useCallback(async () => {
@@ -72,7 +83,19 @@ export default function PublicDashboardPage() {
       }
 
       const data = response.data;
-      const widgets = getPublicWidgets(data).map(mapWidgetResponseToDashboardItem);
+      const dashboardId = getPublicDashboardId(data);
+      let rawWidgets: WidgetResponseDto[] = getPublicWidgets(data);
+
+      if (rawWidgets.length === 0 && dashboardId) {
+        try {
+          const widgetsResponse = await getPublicDashboardWidgets(dashboardId);
+          rawWidgets = widgetsResponse.data ?? [];
+        } catch (widgetError) {
+          console.warn("[Public Dashboard] Public widget fallback failed", widgetError);
+        }
+      }
+
+      const widgets = rawWidgets.map(mapWidgetResponseToDashboardItem);
       const currentEquipment = getPublicEquipment(data);
       const nextEquipmentById: Record<string, UniversalEquipment> = {};
       let primaryEquipment = EMPTY_EQUIPMENT;
@@ -92,6 +115,11 @@ export default function PublicDashboardPage() {
       setEquipment(primaryEquipment);
       setEquipmentById(nextEquipmentById);
       setErrorMessage("");
+      setEmptyMessage(
+        widgets.length === 0
+          ? "공유 API에서 위젯 목록을 받지 못했습니다. 백엔드 public 응답에 widgets 배열이 포함되어야 대시보드를 렌더링할 수 있습니다."
+          : "",
+      );
     } catch (error) {
       console.error("[Public Dashboard] Failed to load shared dashboard", error);
       setErrorMessage(error instanceof Error ? error.message : "만료되었거나 존재하지 않는 공유 링크입니다.");
@@ -102,12 +130,6 @@ export default function PublicDashboardPage() {
 
   useEffect(() => {
     void loadPublicDashboard();
-
-    const timer = window.setInterval(() => {
-      void loadPublicDashboard();
-    }, 5000);
-
-    return () => window.clearInterval(timer);
   }, [loadPublicDashboard]);
 
   if (isLoading) {
@@ -124,7 +146,7 @@ export default function PublicDashboardPage() {
         <div>
           <h1 className="text-2xl font-black text-white">Shared dashboard unavailable</h1>
           <p className="mt-3 text-sm text-slate-500">
-            만료되었거나 존재하지 않는 공유 링크입니다.
+            {errorMessage || "만료되었거나 존재하지 않는 공유 링크입니다."}
           </p>
         </div>
       </div>
@@ -143,6 +165,13 @@ export default function PublicDashboardPage() {
       </header>
 
       <main className="mx-auto max-w-[1800px] p-4">
+        {emptyMessage ? (
+          <div className="rounded-lg border border-slate-800 bg-[#111827] p-6 text-sm text-slate-400">
+            <p className="font-bold text-white">No widgets to display</p>
+            <p className="mt-2 leading-6">{emptyMessage}</p>
+          </div>
+        ) : null}
+
         <div ref={containerRef}>
           {mounted && (
             <Responsive<DashboardBreakpoint>
