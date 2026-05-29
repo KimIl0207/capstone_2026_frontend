@@ -9,6 +9,7 @@ import { getAccessToken, logout } from "../utils/Auth";
 
 import DashboardModals from "../components/dashboard/DashboardModals";
 import { ALERTS_DATA } from "../components/mocks/dashboardMockData";
+import AppLogo from "../components/AppLogo";
 
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
@@ -328,9 +329,7 @@ export default function MainLayout() {
         <div className="flex h-16 items-center justify-between border-b border-slate-800 px-4">
           <div className="flex min-w-0 items-center gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/15">
-              <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <path d="M13 2 3 14h8l-1 8 11-14h-8l1-6Z" />
-              </svg>
+              <AppLogo className="h-7 w-7" />
             </div>
 
             {isSidebarOpen && (
