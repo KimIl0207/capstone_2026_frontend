@@ -100,48 +100,44 @@
 }
 
 @layer utilities {
-  .login-aurora-flow {
-    position: absolute;
-    top: 6%;
-    left: -82%;
-    width: 170%;
-    height: 78%;
-    background:
-      linear-gradient(100deg, transparent 0 12%, rgba(14, 165, 233, 0.08) 20%, rgba(56, 189, 248, 0.34) 34%, rgba(99, 102, 241, 0.18) 46%, transparent 60%),
-      linear-gradient(112deg, transparent 0 22%, rgba(34, 211, 238, 0.22) 31%, rgba(59, 130, 246, 0.12) 46%, transparent 67%),
-      radial-gradient(ellipse at 36% 46%, rgba(125, 211, 252, 0.2), transparent 48%);
-    border-radius: 999px;
-    filter: blur(42px) saturate(1.35);
-    mix-blend-mode: screen;
-    opacity: 0.86;
-    transform: translate3d(-14%, 0, 0) rotate(-10deg) skewX(-10deg);
-    animation: login-aurora-drift 20s linear infinite;
-    mask-image: linear-gradient(90deg, transparent, black 16%, black 82%, transparent);
-    will-change: transform;
+  .auth-mode-panel {
+    animation: auth-mode-panel-in 260ms ease-out both;
   }
 
-  .login-aurora-flow-delayed {
-    top: 36%;
-    left: -94%;
-    height: 58%;
-    background:
-      linear-gradient(92deg, transparent 0 18%, rgba(96, 165, 250, 0.14) 29%, rgba(34, 211, 238, 0.28) 42%, rgba(14, 165, 233, 0.1) 55%, transparent 72%),
-      radial-gradient(ellipse at 46% 55%, rgba(6, 182, 212, 0.22), transparent 50%);
-    opacity: 0.58;
-    transform: translate3d(-20%, 0, 0) rotate(5deg) skewX(12deg);
-    animation-duration: 28s;
-    animation-delay: -11s;
+  .auth-field-enter {
+    animation: auth-field-in 280ms ease-out both;
   }
 
-  @keyframes login-aurora-drift {
-    0% {
-      transform: translate3d(-18%, 1%, 0) rotate(-10deg) skewX(-10deg) scaleX(1);
+  .auth-field-enter:nth-of-type(2) {
+    animation-delay: 45ms;
+  }
+
+  @keyframes auth-mode-panel-in {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
     }
-    50% {
-      transform: translate3d(42%, -4%, 0) rotate(-7deg) skewX(-4deg) scaleX(1.08);
+    to {
+      opacity: 1;
+      transform: translateY(0);
     }
-    100% {
-      transform: translate3d(108%, 2%, 0) rotate(-10deg) skewX(-10deg) scaleX(1);
+  }
+
+  @keyframes auth-field-in {
+    from {
+      opacity: 0;
+      transform: translateY(-6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .auth-mode-panel,
+    .auth-field-enter {
+      animation: none;
     }
   }
 

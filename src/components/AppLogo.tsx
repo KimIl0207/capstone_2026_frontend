@@ -6,39 +6,28 @@ type AppLogoProps = {
 export default function AppLogo({ className = "h-6 w-6", title = "Dashboard logo" }: AppLogoProps) {
   return (
     <svg className={className} viewBox="0 0 48 48" fill="none" role="img" aria-label={title}>
+      <circle cx="24" cy="24" r="21" fill="#020617" />
       <path
-        d="M24 4 41.3 14v20L24 44 6.7 34V14L24 4Z"
-        fill="currentColor"
-        className="text-slate-950"
-      />
-      <path
-        d="M24 5.8 39.8 15v18L24 42.2 8.2 33V15L24 5.8Z"
-        fill="url(#app-logo-panel)"
-        stroke="rgba(255,255,255,.38)"
-        strokeWidth="1.4"
-      />
-      <path
-        d="M15 31.5 21 24.5l5.2 4.5L33.5 17"
-        stroke="white"
-        strokeWidth="3.2"
+        d="M36.5 17.8c-3.4-6.3-12.7-8.6-19.4-4.6-7 4.2-8.7 13.8-3.4 19.8 4.4 5 12.8 5.7 17.9 1.2 4.1-3.6 4.2-10.1.4-13.4-3.1-2.7-8.2-2.5-10.8.5-2 2.3-1.5 5.9.9 7.3 2.1 1.3 4.9.5 5.9-1.4"
+        stroke="url(#app-logo-spiral)"
+        strokeWidth="5.2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <circle cx="15" cy="31.5" r="3" fill="#34D399" stroke="white" strokeWidth="1.5" />
-      <circle cx="21" cy="24.5" r="3" fill="#60A5FA" stroke="white" strokeWidth="1.5" />
-      <circle cx="26.2" cy="29" r="3" fill="#A78BFA" stroke="white" strokeWidth="1.5" />
-      <circle cx="33.5" cy="17" r="3" fill="#22D3EE" stroke="white" strokeWidth="1.5" />
       <path
-        d="M14 14.5h10M14 18.5h6"
-        stroke="rgba(255,255,255,.72)"
-        strokeWidth="1.7"
+        d="M14 33.4c4.8 3.1 11.8 3.4 17.1-.6"
+        stroke="rgba(255,255,255,.62)"
+        strokeWidth="2"
         strokeLinecap="round"
       />
+      <circle cx="35.8" cy="17.6" r="4.2" fill="#22D3EE" stroke="white" strokeWidth="1.6" />
+      <circle cx="28.1" cy="27.1" r="2.6" fill="#A78BFA" stroke="white" strokeWidth="1.3" />
+      <circle cx="15.2" cy="33.3" r="2.8" fill="#34D399" stroke="white" strokeWidth="1.3" />
       <defs>
-        <linearGradient id="app-logo-panel" x1="9" x2="40" y1="8" y2="41" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#06B6D4" />
-          <stop offset=".48" stopColor="#4F46E5" />
-          <stop offset="1" stopColor="#7C3AED" />
+        <linearGradient id="app-logo-spiral" x1="11" x2="39" y1="36" y2="11" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#34D399" />
+          <stop offset=".44" stopColor="#38BDF8" />
+          <stop offset="1" stopColor="#818CF8" />
         </linearGradient>
       </defs>
     </svg>

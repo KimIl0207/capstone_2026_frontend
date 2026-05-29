@@ -402,9 +402,7 @@ export default function MainLayout() {
               메뉴
             </button>
             <div className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/15 md:flex">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <path d="M13 2 3 14h8l-1 8 11-14h-8l1-6Z" />
-              </svg>
+              <AppLogo className="h-7 w-7" />
             </div>
             <div className="min-w-0">
               <h1 className="truncate text-sm font-black uppercase tracking-tight text-white">
