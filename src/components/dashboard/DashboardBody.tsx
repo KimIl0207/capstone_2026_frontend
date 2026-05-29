@@ -1,6 +1,7 @@
+import { useState } from "react";
 import { Responsive, useContainerWidth } from "react-grid-layout";
 import { useOutletContext } from "react-router-dom";
-import type { DashboardItem } from "../../types/dashboard";
+
 import { WidgetRenderer } from "../../components/WidgetRenderer";
 import {
   DASHBOARD_BREAKPOINTS,
@@ -8,9 +9,21 @@ import {
   type DashboardBreakpoint,
   type DashboardState,
 } from "../../hooks/useDashboardState";
+import type { DashboardItem } from "../../types/dashboard";
 
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
+
+const widgetBackgroundOptions = [
+  { label: "Slate", value: "bg-[#161B26]", swatch: "bg-[#161B26]" },
+  { label: "Ink", value: "bg-slate-950", swatch: "bg-slate-950" },
+  { label: "Blue", value: "bg-blue-950", swatch: "bg-blue-950" },
+  { label: "Cyan", value: "bg-cyan-950", swatch: "bg-cyan-950" },
+  { label: "Emerald", value: "bg-emerald-950", swatch: "bg-emerald-950" },
+  { label: "Violet", value: "bg-violet-950", swatch: "bg-violet-950" },
+  { label: "Rose", value: "bg-rose-950", swatch: "bg-rose-950" },
+  { label: "Amber", value: "bg-amber-950", swatch: "bg-amber-950" },
+];
 
 type DashboardOutletContext = DashboardState & {
   canEditDashboard: boolean;
@@ -18,6 +31,7 @@ type DashboardOutletContext = DashboardState & {
 
 export default function DashboardBody() {
   const { containerRef, width, mounted } = useContainerWidth();
+  const [openSettingsWidgetId, setOpenSettingsWidgetId] = useState<string | null>(null);
 
   const {
     alerts,
@@ -27,6 +41,7 @@ export default function DashboardBody() {
     layouts,
     responsiveLayouts,
     togglePinWidget,
+    updateWidgetBackgroundColor,
     handleLayoutChange,
     removeWidget,
     applyLayout,
@@ -35,9 +50,9 @@ export default function DashboardBody() {
   } = useOutletContext<DashboardOutletContext>();
 
   return (
-    <main className="p-4 max-w-[1800px] mx-auto">
-        <div ref={containerRef}>
-          {mounted && (
+    <main className="mx-auto max-w-[1800px] p-4">
+      <div ref={containerRef}>
+        {mounted && (
           <Responsive<DashboardBreakpoint>
             className="layout"
             layouts={responsiveLayouts}
@@ -75,73 +90,158 @@ export default function DashboardBody() {
               handleLayoutChange(currentLayout, allLayouts);
             }}
           >
-            {layouts.map((widget: DashboardItem) => (
-              <div
-                key={widget.i}
-                className="bg-[#161B26] border border-slate-800 rounded-3xl p-6 shadow-xl relative overflow-hidden group flex flex-col"
-              >
-                {canEditDashboard && (
-                  <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity z-10 flex items-center gap-1.5">
-                    <button
-                      className="text-slate-500 hover:text-white p-1 text-xs"
-                      title="위젯 설정"
-                    >
-                      ⚙️
-                    </button>
+            {layouts.map((widget: DashboardItem) => {
+              const backgroundColor = widget.backgroundColor ?? "bg-[#161B26]";
+              const isSettingsOpen = openSettingsWidgetId === widget.i;
 
-                    <button
-                      onClick={() => removeWidget(widget.i)}
-                      className="text-slate-500 hover:text-rose-500 p-1 transition-colors"
-                      title="위젯 삭제"
-                    >
-                      <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <line x1="18" y1="6" x2="6" y2="18" />
-                        <line x1="6" y1="6" x2="18" y2="18" />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={() => togglePinWidget(widget.i)}
-                      className={`p-1 text-xs transition-colors ${widget.pinned ? "text-yellow-400" : "text-slate-500 hover:text-white"
-                        }`}
-                      title={widget.pinned ? "핀 해제" : "핀 고정"}
-                    >
-                      📌
-                    </button>
-                  </div>
-                )}
-
-                <h3 className={`${canEditDashboard ? "drag-handle cursor-move" : "cursor-default"} text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2 select-none`}>
-                  <div className={`w-1 h-3 ${widget.color} rounded-full`} />
-                  {widget.title}
+              return (
+                <div
+                  key={widget.i}
+                  className={`${backgroundColor} relative flex flex-col overflow-hidden rounded-3xl border border-slate-800 p-6 shadow-xl group`}
+                >
                   {canEditDashboard && (
-                    <span className="ml-auto opacity-0 group-hover:opacity-100 text-slate-600">
-                      ⠿
-                    </span>
-                  )}
-                </h3>
+                    <div
+                      className={[
+                        "absolute right-0 top-0 z-20 flex items-center gap-1.5 p-4 transition-opacity",
+                        isSettingsOpen ? "opacity-100" : "opacity-0 group-hover:opacity-100",
+                      ].join(" ")}
+                    >
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setOpenSettingsWidgetId((current) =>
+                            current === widget.i ? null : widget.i,
+                          )
+                        }
+                        className="no-drag rounded-md p-1 text-slate-500 transition-colors hover:bg-slate-900/70 hover:text-white"
+                        title="위젯 설정"
+                        aria-label="위젯 설정"
+                      >
+                        <svg
+                          width="15"
+                          height="15"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          aria-hidden="true"
+                        >
+                          <path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z" />
+                          <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.36a1.7 1.7 0 0 0-1 .16 1.7 1.7 0 0 0-1 1.55V21a2 2 0 0 1-4 0v-.09a1.7 1.7 0 0 0-1-1.55 1.7 1.7 0 0 0-1-.16 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.64 15a1.7 1.7 0 0 0-.16-1 1.7 1.7 0 0 0-1.55-1H3a2 2 0 0 1 0-4h.09a1.7 1.7 0 0 0 1.55-1 1.7 1.7 0 0 0 .16-1 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.64a1.7 1.7 0 0 0 1-.16A1.7 1.7 0 0 0 11 2.93V3a2 2 0 0 1 4 0v-.07a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1 .16 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.36 9c.07.34.12.68.12 1s-.05.66-.08 1Z" />
+                        </svg>
+                      </button>
 
-                <div className="flex-grow overflow-hidden flex flex-col">
-                  <WidgetRenderer
-                    widget={widget}
-                    equipment={equipment}
-                    equipmentById={equipmentById}
-                    alerts={alerts}
-                  />
+                      <button
+                        type="button"
+                        onClick={() => removeWidget(widget.i)}
+                        className="no-drag p-1 text-slate-500 transition-colors hover:text-rose-500"
+                        title="위젯 삭제"
+                        aria-label="위젯 삭제"
+                      >
+                        <svg
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          aria-hidden="true"
+                        >
+                          <line x1="18" y1="6" x2="6" y2="18" />
+                          <line x1="6" y1="6" x2="18" y2="18" />
+                        </svg>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => togglePinWidget(widget.i)}
+                        className={`no-drag p-1 text-xs transition-colors ${
+                          widget.pinned ? "text-yellow-400" : "text-slate-500 hover:text-white"
+                        }`}
+                        title={widget.pinned ? "고정 해제" : "고정"}
+                        aria-label={widget.pinned ? "고정 해제" : "고정"}
+                      >
+                        Pin
+                      </button>
+
+                      {isSettingsOpen && (
+                        <div className="no-drag absolute right-4 top-12 w-56 rounded-lg border border-slate-700 bg-slate-950/95 p-3 shadow-2xl shadow-black/50 backdrop-blur">
+                          <div className="mb-3 flex items-center justify-between gap-3">
+                            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                              Background
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setOpenSettingsWidgetId(null)}
+                              className="rounded px-1.5 py-0.5 text-xs font-bold text-slate-500 transition-colors hover:bg-slate-800 hover:text-white"
+                              aria-label="설정 닫기"
+                            >
+                              x
+                            </button>
+                          </div>
+                          <div className="grid grid-cols-4 gap-2">
+                            {widgetBackgroundOptions.map((option) => {
+                              const isSelected = backgroundColor === option.value;
+
+                              return (
+                                <button
+                                  type="button"
+                                  key={option.value}
+                                  onClick={() => {
+                                    updateWidgetBackgroundColor(widget.i, option.value);
+                                    setOpenSettingsWidgetId(null);
+                                  }}
+                                  className={[
+                                    "flex h-9 items-center justify-center rounded-md border transition-colors",
+                                    isSelected
+                                      ? "border-cyan-300 ring-2 ring-cyan-400/40"
+                                      : "border-slate-700 hover:border-slate-500",
+                                  ].join(" ")}
+                                  title={option.label}
+                                  aria-label={`${option.label} 배경색`}
+                                >
+                                  <span
+                                    className={`h-5 w-5 rounded-full border border-white/10 ${option.swatch}`}
+                                  />
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <h3
+                    className={`${canEditDashboard ? "drag-handle cursor-move" : "cursor-default"} mb-4 flex select-none items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-500`}
+                  >
+                    <div className={`h-3 w-1 rounded-full ${widget.color}`} />
+                    {widget.title}
+                    {canEditDashboard && (
+                      <span className="ml-auto text-slate-600 opacity-0 group-hover:opacity-100">
+                        Drag
+                      </span>
+                    )}
+                  </h3>
+
+                  <div className="flex flex-grow flex-col overflow-hidden">
+                    <WidgetRenderer
+                      widget={widget}
+                      equipment={equipment}
+                      equipmentById={equipmentById}
+                      alerts={alerts}
+                    />
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </Responsive>
-          )}
-        </div>
-      </main>
+        )}
+      </div>
+    </main>
   );
 }

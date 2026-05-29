@@ -45,6 +45,8 @@ export const DASHBOARD_COLS: Record<DashboardBreakpoint, number> = {
 };
 
 const DASHBOARD_BREAKPOINT_KEYS: DashboardBreakpoint[] = ["lg", "md", "sm"];
+const WIDGET_APPEARANCE_STORAGE_KEY = "dashboard-widget-appearance";
+const DEFAULT_WIDGET_BACKGROUND = "bg-[#161B26]";
 
 // 대시보드 상태 관리를 위한 커스텀 훅
 type WidgetConfig = {
@@ -110,6 +112,37 @@ const parseWidgetConfig = (configJson?: string) => {
   }
 };
 
+const getWidgetAppearanceStorageKey = (dashboardId: number) =>
+  `${WIDGET_APPEARANCE_STORAGE_KEY}:${dashboardId}`;
+
+const loadWidgetAppearanceOverrides = (dashboardId: number) => {
+  try {
+    const raw = window.localStorage.getItem(getWidgetAppearanceStorageKey(dashboardId));
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed as Record<string, string> : {};
+  } catch {
+    return {};
+  }
+};
+
+const saveWidgetAppearanceOverride = (
+  dashboardId: number | null,
+  widgetId: string,
+  backgroundColor: string,
+) => {
+  if (!dashboardId) return;
+
+  const storageKey = getWidgetAppearanceStorageKey(dashboardId);
+  const previous = loadWidgetAppearanceOverrides(dashboardId);
+  const next = {
+    ...previous,
+    [widgetId]: backgroundColor,
+  };
+
+  window.localStorage.setItem(storageKey, JSON.stringify(next));
+};
+
 export const mapWidgetResponseToDashboardItem = (widget: WidgetResponseDto): DashboardItem => {
   const config = parseWidgetConfig(widget.configJson);
   const type = isDashboardWidgetType(widget.widgetType) ? widget.widgetType : "GAUGE";
@@ -138,6 +171,7 @@ export const mapWidgetResponseToDashboardItem = (widget: WidgetResponseDto): Das
     title: widget.title,
     dataKey,
     color: typeof config.color === "string" ? config.color : "bg-indigo-500",
+    backgroundColor: typeof config.backgroundColor === "string" ? config.backgroundColor : DEFAULT_WIDGET_BACKGROUND,
     pinned: typeof config.pinned === "boolean" ? config.pinned : false,
     static: typeof config.pinned === "boolean" ? config.pinned : false,
     x: widget.posX,
@@ -196,6 +230,7 @@ const buildWidgetCreateRequest = (
     configJson: JSON.stringify({
       dataKey: item.dataKey,
       color: item.color,
+      backgroundColor: item.backgroundColor ?? DEFAULT_WIDGET_BACKGROUND,
       pinned: item.pinned ?? false,
       selectedData,
     }),
@@ -454,7 +489,14 @@ export function useDashboardState({
       const widgetsResponse = await getMyWidgets();
       const widgets = widgetsResponse.data ?? [];
 
-      const serverLayout = widgets.map(mapWidgetResponseToDashboardItem);
+      const appearanceOverrides = loadWidgetAppearanceOverrides(dashboard.dashboardId);
+      const serverLayout = widgets.map((widget) => {
+        const item = mapWidgetResponseToDashboardItem(widget);
+        return {
+          ...item,
+          backgroundColor: appearanceOverrides[item.i] ?? item.backgroundColor,
+        };
+      });
       setResponsiveLayouts({ lg: serverLayout });
       setIsDashboardDirty(false);
       pendingDeletedWidgetIds.current.clear();
@@ -909,6 +951,7 @@ export function useDashboardState({
           ? `다중 비교 (${selectedDataForCreate.length}개)`
           : `${selectedDataForCreate[0].eqName} - ${selectedDataForCreate[0].sensorLabel ?? selectedDataForCreate[0].sensorId}`,
       color: "bg-indigo-500",
+      backgroundColor: DEFAULT_WIDGET_BACKGROUND,
       x: (layouts.length * 4) % 12,
       y: Infinity,
       w: newWidgetConfig.type === "TREND" ? 8 : 4,
@@ -1093,6 +1136,20 @@ export function useDashboardState({
     );
   };
 
+  const updateWidgetBackgroundColor = (widgetId: string, backgroundColor: string) => {
+    saveWidgetAppearanceOverride(dashboardId, widgetId, backgroundColor);
+    updateLayouts((items) =>
+      items.map((widget) =>
+        widget.i === widgetId
+          ? {
+            ...widget,
+            backgroundColor,
+          }
+          : widget,
+      ),
+    );
+  };
+
   return {
     allEquipments,
     alerts,
@@ -1151,6 +1208,7 @@ export function useDashboardState({
     closeEquipmentModal,
     applyEquipmentRegistration,
     togglePinWidget,
+    updateWidgetBackgroundColor,
     arrangeWidgets,
     compactWidgets,
     applyLayout,

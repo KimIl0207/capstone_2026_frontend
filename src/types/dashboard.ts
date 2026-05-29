@@ -33,6 +33,7 @@ export interface DashboardItem {
   dataKey: string | string[];
   title: string;
   color: string;
+  backgroundColor?: string;
   pinned?: boolean;
 }
 
