@@ -465,7 +465,7 @@ export default function MainLayout() {
                 ].join(" ")}
                 title={dashboardSaveError ?? undefined}
               >
-                {isSavingDashboard ? "Saving..." : "Save"}
+                {isSavingDashboard ? "저장 중..." : "저장"}
               </button>
               <span
                 className={[
@@ -479,11 +479,11 @@ export default function MainLayout() {
                 title={dashboardSaveError ?? undefined}
               >
                 {dashboardSaveError
-                  ? "Save failed"
+                  ? "저장 실패"
                   : isDashboardDirty
-                    ? "Unsaved"
+                    ? "저장되지 않음"
                     : lastDashboardSavedAt
-                      ? `Saved ${lastDashboardSavedAt.toLocaleTimeString()}`
+                      ? `저장됨 ${lastDashboardSavedAt.toLocaleTimeString()}`
                       : "Saved locally"}
               </span>
             </div>
@@ -493,7 +493,7 @@ export default function MainLayout() {
             onClick={() => void handleLogout()}
             className="rounded-lg border border-slate-700 bg-slate-900 px-4 py-2 text-xs font-bold text-slate-300 transition-colors hover:border-rose-400 hover:text-rose-200"
           >
-            Logout
+            로그아웃
           </button>
         </header>
 

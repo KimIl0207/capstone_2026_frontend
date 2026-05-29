@@ -131,29 +131,15 @@ export default function Login({ onLogin, onSignup }: LoginProps) {
               Smart Factory Platform
             </p>
             <h1 className="text-4xl font-black leading-tight tracking-tight text-white">
-              Unified Equipment
+              범용 장비
               <br />
-              Monitoring
+              모니터링
             </h1>
             <p className="mt-5 max-w-md text-sm leading-7 text-slate-400">
-              Monitor equipment, sensors, and gateway data from a single dashboard.
+              단일 대시보드에서 장비, 센서 및 게이트웨이 데이터를 모니터링합니다.
             </p>
           </div>
 
-          <div className="mt-10 grid grid-cols-3 gap-4">
-            {[
-              { label: "Live Status", value: "24/7" },
-              { label: "Assets", value: "128" },
-              { label: "Gateway", value: "STOMP" },
-            ].map((item) => (
-              <div key={item.label} className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
-                <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
-                  {item.label}
-                </div>
-                <div className="mt-2 text-xl font-black text-white">{item.value}</div>
-              </div>
-            ))}
-          </div>
         </section>
 
         <section className="flex flex-col justify-center bg-[#0D1117]/80 p-8 sm:p-10 lg:p-12">
@@ -164,24 +150,24 @@ export default function Login({ onLogin, onSignup }: LoginProps) {
               </svg>
             </div>
             <div>
-              <div className="text-sm font-black uppercase tracking-tight text-white">Dashboard</div>
-              <div className="font-mono text-[10px] text-slate-500">Secure access</div>
+              <div className="text-sm font-black uppercase tracking-tight text-white">대시보드</div>
+              <div className="font-mono text-[10px] text-slate-500">보안 액세스</div>
             </div>
           </div>
 
           <div className="mb-8">
             <h2 className="text-3xl font-black tracking-tight text-white">
-              {isSignup ? "Create account" : "Login"}
+              {isSignup ? "계정 생성" : "로그인"}
             </h2>
             <p className="mt-2 text-sm text-slate-500">
-              {isSignup ? "Register a dashboard account." : "Access your monitoring dashboard."}
+              {isSignup ? "대시보드 계정을 등록하세요." : "모니터링 대시보드에 접근하세요."}
             </p>
           </div>
 
           <div className="mb-6 grid grid-cols-2 rounded-2xl border border-slate-800 bg-slate-950/60 p-1">
             {[
-              { label: "Login", value: "login" as const },
-              { label: "Sign up", value: "signup" as const },
+              { label: "로그인", value: "login" as const },
+              { label: "계정 생성", value: "signup" as const },
             ].map((item) => (
               <button
                 key={item.value}
@@ -201,13 +187,13 @@ export default function Login({ onLogin, onSignup }: LoginProps) {
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label className="mb-2 block text-[10px] font-bold uppercase tracking-widest text-slate-500">
-                Username
+                ID
               </label>
               <input
                 type="text"
                 value={id}
                 onChange={(event) => setId(event.target.value)}
-                placeholder={isSignup ? "lowercase username" : "username"}
+                placeholder={isSignup ? "ID는 3-20자 사이의 영문자와 숫자" : "ID"}
                 className="h-12 w-full rounded-2xl border border-slate-700/50 bg-slate-900/80 px-4 text-sm outline-none transition-all placeholder:text-slate-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                 autoComplete="username"
               />
@@ -217,7 +203,7 @@ export default function Login({ onLogin, onSignup }: LoginProps) {
               <>
                 <div>
                   <label className="mb-2 block text-[10px] font-bold uppercase tracking-widest text-slate-500">
-                    Email
+                    이메일
                   </label>
                   <input
                     type="email"
@@ -231,13 +217,13 @@ export default function Login({ onLogin, onSignup }: LoginProps) {
 
                 <div>
                   <label className="mb-2 block text-[10px] font-bold uppercase tracking-widest text-slate-500">
-                    Full name
+                    이름
                   </label>
                   <input
                     type="text"
                     value={fullName}
                     onChange={(event) => setFullName(event.target.value)}
-                    placeholder="Full name"
+                    placeholder="이름"
                     className="h-12 w-full rounded-2xl border border-slate-700/50 bg-slate-900/80 px-4 text-sm outline-none transition-all placeholder:text-slate-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                     autoComplete="name"
                   />
@@ -247,14 +233,14 @@ export default function Login({ onLogin, onSignup }: LoginProps) {
 
             <div>
               <label className="mb-2 block text-[10px] font-bold uppercase tracking-widest text-slate-500">
-                Password
+                비밀번호
               </label>
               <div className="relative">
                 <input
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
-                  placeholder="password"
+                  placeholder="비밀번호"
                   className="h-12 w-full rounded-2xl border border-slate-700/50 bg-slate-900/80 px-4 pr-16 text-sm outline-none transition-all placeholder:text-slate-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                   autoComplete={isSignup ? "new-password" : "current-password"}
                 />
@@ -263,7 +249,7 @@ export default function Login({ onLogin, onSignup }: LoginProps) {
                   onClick={() => setShowPassword((prev) => !prev)}
                   className="absolute inset-y-0 right-0 px-4 text-xs font-bold text-slate-500 transition-colors hover:text-white"
                 >
-                  {showPassword ? "Hide" : "Show"}
+                  {showPassword ? "숨기기" : "보이기"}
                 </button>
               </div>
             </div>
@@ -273,7 +259,7 @@ export default function Login({ onLogin, onSignup }: LoginProps) {
               disabled={isSubmitting}
               className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-indigo-600 text-sm font-bold text-white shadow-lg shadow-indigo-500/20 transition-all hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400"
             >
-              {isSubmitting ? "Submitting..." : isSignup ? "Create account" : "Login"}
+              {isSubmitting ? "Submitting..." : isSignup ? "계정 생성" : "로그인"}
             </button>
           </form>
 
@@ -281,7 +267,7 @@ export default function Login({ onLogin, onSignup }: LoginProps) {
             <div className="flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5">
               <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
               <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-500">
-                Secure Channel
+                보안 채널
               </span>
             </div>
           </div>

@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "mcp:dashboard-api": "node mcp/dashboard-api-mcp.js"
   },
   "dependencies": {
     "@stomp/stompjs": "^7.3.0",
