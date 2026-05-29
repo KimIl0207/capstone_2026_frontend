@@ -6,8 +6,6 @@ import MainLayout from "./layouts/MainLayout";
 import DashboardPage from "./pages/DashboardPage";
 import Login from "./pages/Login";
 import PublicDashboardPage from "./pages/PublicDashboardPage";
-import SettingsPage from "./pages/SettingsPage";
-import StatsPage from "./pages/StatsPage";
 import ProtectedRoute from "./routes/ProtectedRoute";
 import PublicRoute from "./routes/PublicRoute";
 import { loginWithToken } from "./utils/Auth";
@@ -55,8 +53,6 @@ export default function App() {
       <Route element={<ProtectedRoute />}>
         <Route element={<MainLayout />}>
           <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/stats" element={<StatsPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
           <Route path="/ws-test" element={<WebSocketTest />} />
         </Route>
       </Route>

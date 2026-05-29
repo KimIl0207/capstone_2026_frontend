@@ -1,6 +1,7 @@
 import { getAccessToken } from "../utils/Auth";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://43.201.141.9:8080";
+const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
+const API_BASE_URL = configuredApiBaseUrl || window.location.origin;
 
 export type ApiResponse<T> = {
   success: boolean;

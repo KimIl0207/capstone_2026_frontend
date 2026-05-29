@@ -3,7 +3,9 @@ import SockJS from "sockjs-client";
 
 import { getAccessToken } from "../utils/Auth";
 
-export const WS_URL = import.meta.env.VITE_WS_URL ?? "http://43.201.141.9:8080/ws-stomp";
+const configuredWsUrl = import.meta.env.VITE_WS_URL?.trim();
+
+export const WS_URL = configuredWsUrl || "/ws-stomp";
 export const DEFAULT_USER_ID = import.meta.env.VITE_USER_ID ?? "1";
 export const DEFAULT_EQUIPMENT_ID = import.meta.env.VITE_EQUIPMENT_ID;
 export const DEFAULT_EQUIPMENT_ENTITY_ID = import.meta.env.VITE_EQUIPMENT_ENTITY_ID;
