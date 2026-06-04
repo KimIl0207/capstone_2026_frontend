@@ -1033,6 +1033,9 @@ export function useDashboardState({
   const loadEquipmentSensors = useCallback(async (equipmentId: string | number, keyword = "", force = false) => {
     const equipmentKey = String(equipmentId);
     const currentEquipment = allEquipments.find((item) => item.id === equipmentKey);
+    const liveSensorNames = new Set(
+      (equipmentById[equipmentKey]?.sensors ?? []).map((sensor) => sensor.sensorId ?? sensor.label),
+    );
 
     if (!force && !keyword && currentEquipment?.sensorsLoaded) {
       return currentEquipment.sensors;
@@ -1042,7 +1045,9 @@ export function useDashboardState({
 
     try {
       const sensorsResponse = await searchEquipmentSensors(equipmentId, keyword);
-      const sensors = (sensorsResponse.data ?? []).map(mapSensorResponseToMeta);
+      const sensors = (sensorsResponse.data ?? [])
+        .map(mapSensorResponseToMeta)
+        .filter((sensor) => liveSensorNames.size === 0 || liveSensorNames.has(sensor.label));
 
       setAllEquipments((prev) =>
         prev.map((item) =>
@@ -1064,7 +1069,7 @@ export function useDashboardState({
     } finally {
       setLoadingSensorEquipmentId((prev) => (prev === equipmentKey ? null : prev));
     }
-  }, [allEquipments]);
+  }, [allEquipments, equipmentById]);
 
   const selectEquipmentForDiscovery = useCallback((equipmentId: string) => {
     setTempSelection({ eqId: equipmentId, sensorId: "" });

@@ -58,6 +58,15 @@ export default function EquipmentManagementPage() {
   const selectedEquipment = state.allEquipments.find(
     (equipment) => equipment.id === state.tempSelection.eqId,
   );
+  const selectedLiveEquipment = selectedEquipment
+    ? state.equipmentById[selectedEquipment.id]
+    : undefined;
+  const selectedSensors = selectedLiveEquipment?.sensors.map((sensor) => ({
+    id: sensor.sensorId ?? sensor.label,
+    label: sensor.label,
+    unit: sensor.unit,
+    dataType: sensor.dataType,
+  })) ?? selectedEquipment?.sensors ?? [];
 
   const filteredEquipments = useMemo(() => {
     const keyword = equipmentSearch.trim().toLowerCase();
@@ -73,7 +82,7 @@ export default function EquipmentManagementPage() {
 
   const filteredSensors = useMemo(() => {
     const keyword = sensorSearch.trim().toLowerCase();
-    const sensors = selectedEquipment?.sensors ?? [];
+    const sensors = selectedSensors;
 
     if (!keyword) return sensors;
 
@@ -82,11 +91,12 @@ export default function EquipmentManagementPage() {
         String(value ?? "").toLowerCase().includes(keyword),
       ),
     );
-  }, [selectedEquipment, sensorSearch]);
+  }, [selectedSensors, sensorSearch]);
 
   const handleSelectEquipment = (equipmentId: string) => {
     setSensorSearch("");
-    state.selectEquipmentForDiscovery(equipmentId);
+    state.setTempSelection({ eqId: equipmentId, sensorId: "" });
+    void state.loadEquipmentCurrent(equipmentId);
   };
 
   const handleDeleteEquipment = (equipmentId: string, equipmentName: string) => {
@@ -98,13 +108,13 @@ export default function EquipmentManagementPage() {
   };
 
   const totalSensorCount = state.allEquipments.reduce(
-    (sum, equipment) => sum + equipment.sensors.length,
+    (sum, equipment) => sum + (state.equipmentById[equipment.id]?.sensors.length ?? equipment.sensors.length),
     0,
   );
   const selectedStatus =
     state.loadingSensorEquipmentId === selectedEquipment?.id
       ? statusLabels.loading
-      : selectedEquipment && selectedEquipment.sensors.length > 0
+      : selectedEquipment && selectedSensors.length > 0
         ? statusLabels.ready
         : statusLabels.empty;
 
@@ -208,7 +218,7 @@ export default function EquipmentManagementPage() {
                         <div className="mt-1 flex flex-wrap gap-2 text-[10px] font-bold uppercase text-slate-500">
                           <span>{equipment.type || "UNKNOWN"}</span>
                           <span>{equipment.id}</span>
-                          <span>{isLoading ? "Loading" : `${equipment.sensors.length} Tags`}</span>
+                          <span>{isLoading ? "Loading" : `${state.equipmentById[equipment.id]?.sensors.length ?? equipment.sensors.length} Tags`}</span>
                         </div>
                       </button>
 
@@ -247,7 +257,7 @@ export default function EquipmentManagementPage() {
                 <div className="flex gap-2">
                   <IconButton
                     label="센서 새로고침"
-                    onClick={() => void state.loadEquipmentSensors(selectedEquipment.id, sensorSearch, true)}
+                    onClick={() => void state.loadEquipmentCurrent(selectedEquipment.id)}
                     disabled={state.loadingSensorEquipmentId === selectedEquipment.id}
                     tone="cyan"
                   >
