@@ -3,6 +3,7 @@ import {
   applyEquipmentDiscovery,
   createDashboardWidget,
   deleteDashboardWidget,
+  deleteEquipment,
   disableDashboardShare,
   enableDashboardShare,
   getDashboardEquipment,
@@ -1120,6 +1121,47 @@ export function useDashboardState({
     }
   };
 
+  const removeEquipment = async (equipmentId: string) => {
+    if (!equipmentId) return;
+
+    const target = allEquipments.find((item) => item.id === equipmentId);
+
+    if (!target) {
+      return;
+    }
+
+    try {
+      await deleteEquipment(equipmentId);
+
+      setAllEquipments((prev) => prev.filter((item) => item.id !== equipmentId));
+      setEquipmentById((prev) => {
+        const next = { ...prev };
+        delete next[equipmentId];
+        return next;
+      });
+      setTempSelection((prev) => (prev.eqId === equipmentId ? { eqId: "", sensorId: "" } : prev));
+
+      setEquipmentState((prev) =>
+        prev.id === equipmentId
+          ? {
+            ...EMPTY_EQUIPMENT,
+            lastUpdate: new Date().toISOString(),
+          }
+          : prev,
+      );
+
+      updateLayouts((items) =>
+        items.filter((widget) =>
+          String(widget.equipmentEntityId ?? widget.equipmentName ?? "") !== equipmentId &&
+          widget.equipmentName !== target.name,
+        ),
+      );
+    } catch (error) {
+      console.error("[Equipment] Failed to delete equipment", error);
+      alert(error instanceof Error ? error.message : "장비 삭제에 실패했습니다.");
+    }
+  };
+
   // 위젯 고정/고정 해제 함수
   const togglePinWidget = (widgetId: string) => {
     skipNextLayoutChange.current = true; // 다음 레이아웃 변경 이벤트를 무시하도록 설정
@@ -1207,6 +1249,7 @@ export function useDashboardState({
     startNetworkScan,
     closeEquipmentModal,
     applyEquipmentRegistration,
+    removeEquipment,
     togglePinWidget,
     updateWidgetBackgroundColor,
     arrangeWidgets,

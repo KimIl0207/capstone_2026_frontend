@@ -17,6 +17,7 @@ type SignupPayload = {
 type LoginProps = {
   onLogin?: (payload: LoginPayload) => void | Promise<void>;
   onSignup?: (payload: SignupPayload) => void | Promise<void>;
+  onLocalTestLogin?: () => void;
 };
 
 type AuthMode = "login" | "signup";
@@ -46,7 +47,7 @@ function validateSignup(payload: SignupPayload): string | null {
   return null;
 }
 
-export default function Login({ onLogin, onSignup }: LoginProps) {
+export default function Login({ onLogin, onSignup, onLocalTestLogin }: LoginProps) {
   const [mode, setMode] = useState<AuthMode>("login");
   const [id, setId] = useState("");
   const [email, setEmail] = useState("");
@@ -274,6 +275,16 @@ export default function Login({ onLogin, onSignup }: LoginProps) {
               >
                 {isSubmitting ? "처리 중..." : isSignup ? "계정 생성" : "로그인"}
               </button>
+
+              {import.meta.env.DEV && !isSignup && (
+                <button
+                  type="button"
+                  onClick={onLocalTestLogin}
+                  className="flex h-12 w-full items-center justify-center rounded-2xl border border-cyan-500/40 bg-cyan-500/10 text-sm font-bold text-cyan-100 transition-colors hover:bg-cyan-500/20"
+                >
+                  로컬 테스트로 대시보드 진입
+                </button>
+              )}
             </form>
 
             <div className="mt-8 flex flex-wrap items-center justify-between gap-4 border-t border-slate-800 pt-6">

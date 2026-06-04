@@ -4,11 +4,12 @@ import { loginWithPassword, signup } from "./api/client";
 import WebSocketTest from "./components/WebSocketTest";
 import MainLayout from "./layouts/MainLayout";
 import DashboardPage from "./pages/DashboardPage";
+import EquipmentManagementPage from "./pages/EquipmentManagementPage";
 import Login from "./pages/Login";
 import PublicDashboardPage from "./pages/PublicDashboardPage";
 import ProtectedRoute from "./routes/ProtectedRoute";
 import PublicRoute from "./routes/PublicRoute";
-import { loginWithToken } from "./utils/Auth";
+import { loginWithLocalTestSession, loginWithToken } from "./utils/Auth";
 
 function LoginPageWrapper() {
   const navigate = useNavigate();
@@ -37,6 +38,10 @@ function LoginPageWrapper() {
           throw new Error(response.message ?? "Sign up failed.");
         }
       }}
+      onLocalTestLogin={() => {
+        loginWithLocalTestSession();
+        navigate("/dashboard", { replace: true });
+      }}
     />
   );
 }
@@ -53,6 +58,7 @@ export default function App() {
       <Route element={<ProtectedRoute />}>
         <Route element={<MainLayout />}>
           <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/equipment" element={<EquipmentManagementPage />} />
           <Route path="/ws-test" element={<WebSocketTest />} />
         </Route>
       </Route>

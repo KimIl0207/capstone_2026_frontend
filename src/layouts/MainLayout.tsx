@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getMe, logoutSession } from "../api/client";
 import { useDashboardState } from "../hooks/useDashboardState";
 import { useEquipmentWebSocket } from "../hooks/useEquipmentWebSocket";
-import { getAccessToken, logout } from "../utils/Auth";
+import { getAccessToken, isLocalTestSession, logout } from "../utils/Auth";
 
 import DashboardModals from "../components/dashboard/DashboardModals";
 import { ALERTS_DATA } from "../components/mocks/dashboardMockData";
@@ -23,6 +23,12 @@ const navItems = [
     label: "대시보드",
     description: "실시간 설비 모니터링",
     icon: "M4 13h6V4H4v9Zm10 7h6V4h-6v16ZM4 20h6v-5H4v5Z",
+  },
+  {
+    to: "/equipment",
+    label: "설비 관리",
+    description: "장비 등록 및 센서 관리",
+    icon: "M4 7h16v3H4V7Zm2 5h12v7H6v-7Zm2 2v3h2v-3H8Zm5 0v3h2v-3h-2ZM7 4h10v2H7V4Z",
   },
 ];
 
@@ -183,7 +189,6 @@ export default function MainLayout() {
     layouts,
     setEquipment,
     setIsModalOpen,
-    setIsEqModalOpen,
     setAutoArrange,
     arrangeWidgets,
     saveDashboardState,
@@ -229,6 +234,12 @@ export default function MainLayout() {
     if (!accessToken) {
       logout();
       navigate("/login", { replace: true });
+      return undefined;
+    }
+
+    if (isLocalTestSession()) {
+      setCanEditDashboard(true);
+      setIsAuthVerified(true);
       return undefined;
     }
 
@@ -417,15 +428,8 @@ export default function MainLayout() {
 
           <div className="hidden min-w-0 flex-1 md:block" />
 
-          {canEditDashboard && (
+          {canEditDashboard && location.pathname.startsWith("/dashboard") && (
             <div className="flex shrink-0 items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setIsEqModalOpen(true)}
-                className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-emerald-600/20 transition-colors hover:bg-emerald-500"
-              >
-                설비 등록
-              </button>
               <button
                 type="button"
                 onClick={() => setIsModalOpen(true)}

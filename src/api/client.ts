@@ -377,6 +377,10 @@ export function getEquipment(equipmentId: number | string, accessToken?: string)
   return apiClient.get<ApiResponse<EquipmentResponse>>(`/api/equipment/${equipmentId}`, { accessToken });
 }
 
+export function deleteEquipment(equipmentId: number | string, accessToken?: string) {
+  return apiClient.delete<ApiResponse<void>>(`/api/equipment/${equipmentId}`, { accessToken });
+}
+
 export function getEquipmentSensors(equipmentId: number | string, accessToken?: string) {
   return apiClient.get<ApiResponse<SensorResponse[]>>(`/api/sensors/equipment/${equipmentId}`, { accessToken });
 }
