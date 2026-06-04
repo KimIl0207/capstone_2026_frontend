@@ -71,6 +71,11 @@ export type DashboardShareResponse = {
   shareToken: string | null;
 };
 
+export type DashboardUpdateRequest = {
+  dashboardName: string;
+  description?: string;
+};
+
 export type EquipmentResponse = {
   equipmentId: number;
   equipmentName: string;
@@ -295,6 +300,10 @@ export function getMyDashboards(accessToken?: string) {
 
 export function getDashboard(dashboardId: number | string, accessToken?: string) {
   return apiClient.get<ApiResponse<DashboardResponse>>(`/api/dashboards/${dashboardId}`, { accessToken });
+}
+
+export function updateDashboard(dashboardId: number | string, body: DashboardUpdateRequest, accessToken?: string) {
+  return apiClient.put<ApiResponse<DashboardResponse>>(`/api/dashboards/${dashboardId}`, body, { accessToken });
 }
 
 export function enableDashboardShare(dashboardId: number | string, accessToken?: string) {

@@ -8,6 +8,7 @@ type SelectedSensor = {
 
 type TrendChartContentProps = {
   sensors: SelectedSensor[];
+  color?: string;
 };
 
 type TrendPoint = {
@@ -15,8 +16,8 @@ type TrendPoint = {
   [key: string]: string | number;
 };
 
-export function TrendChartContent({ sensors }: TrendChartContentProps) {
-  const chartColors = ["#818cf8", "#34d399", "#fbbf24", "#f87171", "#a78bfa", "#f472b6"];
+export function TrendChartContent({ sensors, color = "#818cf8" }: TrendChartContentProps) {
+  const chartColors = [color, "#34d399", "#fbbf24", "#f87171", "#a78bfa", "#f472b6"];
   const hasLiveSensors = sensors.length > 0;
   const points: TrendPoint[] = Array.from({ length: 12 }, (_, index) => ({
     t: `${index + 1}`,

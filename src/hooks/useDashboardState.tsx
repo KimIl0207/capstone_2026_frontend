@@ -13,6 +13,7 @@ import {
   getMyWidgets,
   searchEquipmentSensors,
   searchMyEquipment,
+  updateDashboard,
   updateWidgetLayouts,
   type AppliedEquipment,
   type WidgetRequestDto,
@@ -48,6 +49,16 @@ export const DASHBOARD_COLS: Record<DashboardBreakpoint, number> = {
 const DASHBOARD_BREAKPOINT_KEYS: DashboardBreakpoint[] = ["lg", "md", "sm"];
 const WIDGET_APPEARANCE_STORAGE_KEY = "dashboard-widget-appearance";
 const DEFAULT_WIDGET_BACKGROUND = "bg-[#161B26]";
+const WIDGET_COLOR_CLASSES = new Set([
+  "bg-indigo-500",
+  "bg-cyan-500",
+  "bg-emerald-500",
+  "bg-amber-500",
+  "bg-rose-500",
+  "bg-violet-500",
+  "bg-sky-500",
+  "bg-pink-500",
+]);
 
 // 대시보드 상태 관리를 위한 커스텀 훅
 type WidgetConfig = {
@@ -127,10 +138,10 @@ const loadWidgetAppearanceOverrides = (dashboardId: number) => {
   }
 };
 
-const saveWidgetAppearanceOverride = (
+const saveWidgetColorOverride = (
   dashboardId: number | null,
   widgetId: string,
-  backgroundColor: string,
+  color: string,
 ) => {
   if (!dashboardId) return;
 
@@ -138,7 +149,7 @@ const saveWidgetAppearanceOverride = (
   const previous = loadWidgetAppearanceOverrides(dashboardId);
   const next = {
     ...previous,
-    [widgetId]: backgroundColor,
+    [widgetId]: color,
   };
 
   window.localStorage.setItem(storageKey, JSON.stringify(next));
@@ -501,7 +512,7 @@ export function useDashboardState({
         const item = mapWidgetResponseToDashboardItem(widget);
         return {
           ...item,
-          backgroundColor: appearanceOverrides[item.i] ?? item.backgroundColor,
+        color: WIDGET_COLOR_CLASSES.has(appearanceOverrides[item.i]) ? appearanceOverrides[item.i] : item.color,
         };
       });
       setResponsiveLayouts({ lg: serverLayout });
@@ -629,6 +640,27 @@ export function useDashboardState({
     setDashboardShareToken(response.data.shareToken);
 
     return response.data;
+  }, [dashboardId]);
+
+  const updateDashboardTitle = useCallback(async (nextTitle: string) => {
+    const dashboardTitle = nextTitle.trim();
+
+    if (!dashboardTitle) {
+      throw new Error("대시보드 제목을 입력해주세요.");
+    }
+
+    if (!dashboardId) {
+      setDashboardName(dashboardTitle);
+      return;
+    }
+
+    const response = await updateDashboard(dashboardId, { dashboardName: dashboardTitle });
+
+    if (!response.success || !response.data) {
+      throw new Error(response.message ?? "대시보드 제목 수정에 실패했습니다.");
+    }
+
+    setDashboardName(response.data.dashboardName);
   }, [dashboardId]);
 
   useEffect(() => {
@@ -1188,14 +1220,14 @@ export function useDashboardState({
     );
   };
 
-  const updateWidgetBackgroundColor = (widgetId: string, backgroundColor: string) => {
-    saveWidgetAppearanceOverride(dashboardId, widgetId, backgroundColor);
+  const updateWidgetColor = (widgetId: string, color: string) => {
+    saveWidgetColorOverride(dashboardId, widgetId, color);
     updateLayouts((items) =>
       items.map((widget) =>
         widget.i === widgetId
           ? {
             ...widget,
-            backgroundColor,
+            color,
           }
           : widget,
       ),
@@ -1247,6 +1279,7 @@ export function useDashboardState({
     saveDashboardState,
     enableShareLink,
     disableShareLink,
+    updateDashboardTitle,
     removeWidget,
     resetWidgetBuilder,
     addSelectedSensorToCart,
@@ -1261,7 +1294,7 @@ export function useDashboardState({
     applyEquipmentRegistration,
     removeEquipment,
     togglePinWidget,
-    updateWidgetBackgroundColor,
+    updateWidgetColor,
     arrangeWidgets,
     compactWidgets,
     applyLayout,

@@ -29,6 +29,21 @@ type Props = {
   alerts: AlertItem[];
 };
 
+const widgetColorMap: Record<string, string> = {
+  "bg-indigo-500": "#818cf8",
+  "bg-cyan-500": "#06b6d4",
+  "bg-emerald-500": "#10b981",
+  "bg-amber-500": "#f59e0b",
+  "bg-rose-500": "#f43f5e",
+  "bg-violet-500": "#8b5cf6",
+  "bg-sky-500": "#0ea5e9",
+  "bg-pink-500": "#ec4899",
+};
+
+function getWidgetChartColor(widget: DashboardItem) {
+  return widgetColorMap[widget.color] ?? "#818cf8";
+}
+
 function EmptyWidgetState({ message = "No live sensor data" }: { message?: string }) {
   return (
     <div className="flex h-full min-h-[120px] items-center justify-center rounded-lg border border-slate-800 bg-slate-900/40 px-4 text-center text-xs font-semibold text-slate-500">
@@ -125,6 +140,7 @@ function getPrimaryEquipment(widget: DashboardItem, fallback: UniversalEquipment
 }
 
 export function WidgetRenderer({ widget, equipment, equipmentById, alerts }: Props) {
+  const chartColor = getWidgetChartColor(widget);
   const widgetEquipment = getPrimaryEquipment(widget, equipment, equipmentById);
   const selectedSensors = resolveSensorsForWidget(widget, widgetEquipment, equipmentById);
   const numericSensors = selectedSensors.filter(isNumericSensor) as Array<SelectedSensor & { value: number }>;
@@ -145,7 +161,7 @@ export function WidgetRenderer({ widget, equipment, equipmentById, alerts }: Pro
       return <SensorGridContent sensors={widgetEquipment.sensors} />;
 
     case "TREND":
-      return <TrendChartContent sensors={numericSensors} />;
+      return <TrendChartContent sensors={numericSensors} color={chartColor} />;
 
     case "ALERTS":
       return <AlertsContent alerts={alerts} />;
@@ -159,6 +175,7 @@ export function WidgetRenderer({ widget, equipment, equipmentById, alerts }: Pro
           label={label}
           min={0}
           max={1200}
+          color={chartColor}
         />
       );
 
@@ -169,7 +186,7 @@ export function WidgetRenderer({ widget, equipment, equipmentById, alerts }: Pro
         <DonutChartWidget
           title={widget.title}
           data={[
-            { name: "Normal", value: widgetEquipment.sensors.filter((sensor) => sensor.status === "NORMAL").length, color: "#10b981" },
+            { name: "Normal", value: widgetEquipment.sensors.filter((sensor) => sensor.status === "NORMAL").length, color: chartColor },
             { name: "Caution", value: widgetEquipment.sensors.filter((sensor) => sensor.status === "CAUTION").length, color: "#f59e0b" },
             { name: "Critical", value: widgetEquipment.sensors.filter((sensor) => sensor.status === "CRITICAL").length, color: "#ef4444" },
           ]}
@@ -191,11 +208,11 @@ export function WidgetRenderer({ widget, equipment, equipmentById, alerts }: Pro
 
     case "BAR_V":
       if (numericSensors.length === 0) return <EmptyWidgetState />;
-      return <BarChartWidget direction="vertical" sensors={numericSensors} />;
+      return <BarChartWidget direction="vertical" sensors={numericSensors} color={chartColor} />;
 
     case "BAR_H":
       if (numericSensors.length === 0) return <EmptyWidgetState />;
-      return <BarChartWidget direction="horizontal" sensors={numericSensors} />;
+      return <BarChartWidget direction="horizontal" sensors={numericSensors} color={chartColor} />;
 
     default:
       return null;

@@ -9,11 +9,13 @@ type SelectedSensor = {
 export function BarChartWidget({
   direction = "vertical",
   sensors,
+  color = "#818cf8",
 }: {
   direction: "vertical" | "horizontal";
   sensors: SelectedSensor[];
+  color?: string;
 }) {
-  const chartColors = ["#818cf8", "#34d399", "#fbbf24", "#f87171", "#a78bfa", "#f472b6"];
+  const chartColors = [color, "#34d399", "#fbbf24", "#f87171", "#a78bfa", "#f472b6"];
   const data = sensors;
 
   if (data.length === 0) {

@@ -5,13 +5,15 @@ export function GaugeChartWidget({
   min = 0, 
   max = 100, 
   unit = "", 
-  label = "" 
+  label = "",
+  color = "#818cf8",
 }: { 
   value: number; 
   min?: number; 
   max?: number; 
   unit?: string; 
   label?: string; 
+  color?: string;
 }) {
   const option = {
     series: [{
@@ -22,7 +24,7 @@ export function GaugeChartWidget({
       min,
       max,
       splitNumber: 5,
-      itemStyle: { color: '#818cf8' }, // 테마 색상 (Indigo)
+      itemStyle: { color },
       progress: { show: true, width: 10 },
       pointer: { show: true, length: '60%', width: 4 },
       axisLine: { lineStyle: { width: 10, color: [[1, '#1e293b']] } },

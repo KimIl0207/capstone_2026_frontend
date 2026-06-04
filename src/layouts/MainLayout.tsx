@@ -171,6 +171,9 @@ function FloatingChatbot() {
 export default function MainLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isTitleEditing, setIsTitleEditing] = useState(false);
+  const [draftDashboardTitle, setDraftDashboardTitle] = useState("");
+  const [isSavingDashboardTitle, setIsSavingDashboardTitle] = useState(false);
   const inactivityWarningTimer = useRef<number | null>(null);
   const inactivityLogoutTimer = useRef<number | null>(null);
   const [canEditDashboard, setCanEditDashboard] = useState(false);
@@ -185,6 +188,7 @@ export default function MainLayout() {
   const {
     autoArrange,
     time,
+    dashboardName,
     equipment,
     layouts,
     setEquipment,
@@ -192,6 +196,7 @@ export default function MainLayout() {
     setAutoArrange,
     arrangeWidgets,
     saveDashboardState,
+    updateDashboardTitle,
     isDashboardDirty,
     isSavingDashboard,
     lastDashboardSavedAt,
@@ -311,6 +316,39 @@ export default function MainLayout() {
     return current?.label ?? "대시보드";
   }, [location.pathname]);
 
+  const displayedDashboardTitle = dashboardName || `${equipment.name} 대시보드`;
+
+  const startTitleEdit = useCallback(() => {
+    setDraftDashboardTitle(displayedDashboardTitle);
+    setIsTitleEditing(true);
+  }, [displayedDashboardTitle]);
+
+  const cancelTitleEdit = useCallback(() => {
+    setDraftDashboardTitle("");
+    setIsTitleEditing(false);
+  }, []);
+
+  const saveDashboardTitle = useCallback(async () => {
+    const nextTitle = draftDashboardTitle.trim();
+
+    if (!nextTitle) {
+      alert("대시보드 제목을 입력해주세요.");
+      return;
+    }
+
+    setIsSavingDashboardTitle(true);
+
+    try {
+      await updateDashboardTitle(nextTitle);
+      setIsTitleEditing(false);
+      setDraftDashboardTitle("");
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "대시보드 제목 수정에 실패했습니다.");
+    } finally {
+      setIsSavingDashboardTitle(false);
+    }
+  }, [draftDashboardTitle, updateDashboardTitle]);
+
   if (!isAuthVerified) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#0B0F1A] text-sm font-semibold text-slate-300">
@@ -416,9 +454,63 @@ export default function MainLayout() {
               <AppLogo className="h-7 w-7" />
             </div>
             <div className="min-w-0">
-              <h1 className="truncate text-sm font-black uppercase tracking-tight text-white">
-                {pageTitle === "대시보드" ? `${equipment.name} 대시보드` : pageTitle}
-              </h1>
+              {pageTitle === "대시보드" && canEditDashboard && isTitleEditing ? (
+                <form
+                  className="flex min-w-0 items-center gap-2"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void saveDashboardTitle();
+                  }}
+                >
+                  <input
+                    value={draftDashboardTitle}
+                    onChange={(event) => setDraftDashboardTitle(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Escape") {
+                        event.preventDefault();
+                        cancelTitleEdit();
+                      }
+                    }}
+                    disabled={isSavingDashboardTitle}
+                    className="h-9 min-w-0 max-w-[320px] rounded-lg border border-slate-700 bg-slate-900 px-3 text-sm font-black text-white outline-none transition-colors focus:border-cyan-400 disabled:opacity-60"
+                    autoFocus
+                  />
+                  <button
+                    type="submit"
+                    disabled={isSavingDashboardTitle}
+                    className="rounded-lg bg-cyan-600 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-cyan-500 disabled:opacity-60"
+                  >
+                    저장
+                  </button>
+                  <button
+                    type="button"
+                    onClick={cancelTitleEdit}
+                    disabled={isSavingDashboardTitle}
+                    className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-bold text-slate-300 transition-colors hover:border-slate-500 hover:text-white disabled:opacity-60"
+                  >
+                    취소
+                  </button>
+                </form>
+              ) : (
+                <div className="flex min-w-0 items-center gap-2">
+                  <h1 className="truncate text-sm font-black uppercase tracking-tight text-white">
+                    {pageTitle === "대시보드" ? displayedDashboardTitle : pageTitle}
+                  </h1>
+                  {pageTitle === "대시보드" && canEditDashboard && (
+                    <button
+                      type="button"
+                      onClick={startTitleEdit}
+                      className="rounded-md p-1 text-slate-500 transition-colors hover:bg-slate-800 hover:text-white"
+                      aria-label="대시보드 제목 수정"
+                      title="대시보드 제목 수정"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="m4 16-.8 4 4-.8L18.5 7.9l-3.2-3.2L4 16Zm13.3-12.1 2.8 2.8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              )}
               <p className="mt-0.5 truncate text-[10px] font-mono text-slate-500">
                 {time.toLocaleDateString()}
                 <span className="ml-1 text-slate-400">{time.toLocaleTimeString()}</span>

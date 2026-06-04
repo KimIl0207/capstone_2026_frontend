@@ -14,15 +14,15 @@ import type { DashboardItem } from "../../types/dashboard";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 
-const widgetBackgroundOptions = [
-  { label: "Slate", value: "bg-[#161B26]", swatch: "bg-[#161B26]" },
-  { label: "Ink", value: "bg-slate-950", swatch: "bg-slate-950" },
-  { label: "Blue", value: "bg-blue-950", swatch: "bg-blue-950" },
-  { label: "Cyan", value: "bg-cyan-950", swatch: "bg-cyan-950" },
-  { label: "Emerald", value: "bg-emerald-950", swatch: "bg-emerald-950" },
-  { label: "Violet", value: "bg-violet-950", swatch: "bg-violet-950" },
-  { label: "Rose", value: "bg-rose-950", swatch: "bg-rose-950" },
-  { label: "Amber", value: "bg-amber-950", swatch: "bg-amber-950" },
+const widgetColorOptions = [
+  { label: "Indigo", value: "bg-indigo-500", hex: "#818cf8" },
+  { label: "Cyan", value: "bg-cyan-500", hex: "#06b6d4" },
+  { label: "Emerald", value: "bg-emerald-500", hex: "#10b981" },
+  { label: "Amber", value: "bg-amber-500", hex: "#f59e0b" },
+  { label: "Rose", value: "bg-rose-500", hex: "#f43f5e" },
+  { label: "Violet", value: "bg-violet-500", hex: "#8b5cf6" },
+  { label: "Sky", value: "bg-sky-500", hex: "#0ea5e9" },
+  { label: "Pink", value: "bg-pink-500", hex: "#ec4899" },
 ];
 
 type DashboardOutletContext = DashboardState & {
@@ -41,7 +41,7 @@ export default function DashboardBody() {
     layouts,
     responsiveLayouts,
     togglePinWidget,
-    updateWidgetBackgroundColor,
+    updateWidgetColor,
     handleLayoutChange,
     removeWidget,
     applyLayout,
@@ -91,13 +91,12 @@ export default function DashboardBody() {
             }}
           >
             {layouts.map((widget: DashboardItem) => {
-              const backgroundColor = widget.backgroundColor ?? "bg-[#161B26]";
               const isSettingsOpen = openSettingsWidgetId === widget.i;
 
               return (
                 <div
                   key={widget.i}
-                  className={`${backgroundColor} relative flex flex-col overflow-hidden rounded-3xl border border-slate-800 p-6 shadow-xl group`}
+                  className={`${widget.backgroundColor ?? "bg-[#161B26]"} relative flex flex-col overflow-hidden rounded-3xl border border-slate-800 p-6 shadow-xl group`}
                 >
                   {canEditDashboard && (
                     <div
@@ -172,7 +171,7 @@ export default function DashboardBody() {
                         <div className="no-drag absolute right-4 top-12 w-56 rounded-lg border border-slate-700 bg-slate-950/95 p-3 shadow-2xl shadow-black/50 backdrop-blur">
                           <div className="mb-3 flex items-center justify-between gap-3">
                             <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                              Background
+                              Chart color
                             </span>
                             <button
                               type="button"
@@ -184,15 +183,15 @@ export default function DashboardBody() {
                             </button>
                           </div>
                           <div className="grid grid-cols-4 gap-2">
-                            {widgetBackgroundOptions.map((option) => {
-                              const isSelected = backgroundColor === option.value;
+                            {widgetColorOptions.map((option) => {
+                              const isSelected = widget.color === option.value;
 
                               return (
                                 <button
                                   type="button"
                                   key={option.value}
                                   onClick={() => {
-                                    updateWidgetBackgroundColor(widget.i, option.value);
+                                    updateWidgetColor(widget.i, option.value);
                                     setOpenSettingsWidgetId(null);
                                   }}
                                   className={[
@@ -202,10 +201,11 @@ export default function DashboardBody() {
                                       : "border-slate-700 hover:border-slate-500",
                                   ].join(" ")}
                                   title={option.label}
-                                  aria-label={`${option.label} 배경색`}
+                                  aria-label={`${option.label} 그래프 색상`}
                                 >
                                   <span
-                                    className={`h-5 w-5 rounded-full border border-white/10 ${option.swatch}`}
+                                    className="h-5 w-5 rounded-full border border-white/10"
+                                    style={{ backgroundColor: option.hex }}
                                   />
                                 </button>
                               );
@@ -221,11 +221,6 @@ export default function DashboardBody() {
                   >
                     <div className={`h-3 w-1 rounded-full ${widget.color}`} />
                     {widget.title}
-                    {canEditDashboard && (
-                      <span className="ml-auto text-slate-600 opacity-0 group-hover:opacity-100">
-                        Drag
-                      </span>
-                    )}
                   </h3>
 
                   <div className="flex flex-grow flex-col overflow-hidden">
