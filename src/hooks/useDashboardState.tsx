@@ -458,9 +458,15 @@ export function useDashboardState({
   }, [applyCurrentEquipment]);
 
   const loadInitialEquipmentCurrent = useCallback(async () => {
+    if (!dashboardId) {
+      return;
+    }
+
     try {
       const response = await getMyEquipmentCurrent();
-      const equipments = response.data ?? [];
+      const equipments = (response.data ?? []).filter(
+        (equipment) => equipment.dashboardId === dashboardId,
+      );
 
       if (equipments.length > 0) {
         equipments.forEach(applyCurrentEquipment);
@@ -468,7 +474,7 @@ export function useDashboardState({
     } catch (error) {
       console.error("[Equipment Current] Failed to load current sensor values", error);
     }
-  }, [applyCurrentEquipment]);
+  }, [applyCurrentEquipment, dashboardId]);
 
   const loadDashboardWidgets = useCallback(async () => {
     setIsLoadingDashboardWidgets(true);
@@ -520,6 +526,10 @@ export function useDashboardState({
   }, [loadDashboardWidgets]);
 
   useEffect(() => {
+    if (!dashboardId) {
+      return undefined;
+    }
+
     void loadInitialEquipmentCurrent();
 
     const timer = window.setInterval(() => {
@@ -527,7 +537,7 @@ export function useDashboardState({
     }, 5000);
 
     return () => window.clearInterval(timer);
-  }, [loadInitialEquipmentCurrent]);
+  }, [dashboardId, loadInitialEquipmentCurrent]);
 
   const saveDashboardState = useCallback(async () => {
     setIsSavingDashboard(true);
